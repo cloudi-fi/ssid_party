@@ -4,6 +4,8 @@
 
 An interactive stick-figure comic about what a device goes through on a Cloudi-Fi captive-portal network: joining the Wi-Fi, the RADIUS check, getting an address, captive-portal detection, registration, and the final authorization that opens the Internet. Pick the phone, the controller vendor, the enforcement mode, the DHCP setup or the registration method, and the story changes with you, including the ways it goes wrong.
 
+There are 14 criteria. Together they give 232,083 valid configurations, which play out as 1,059 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
+
 **Live: https://cloudi-fi.github.io/ssid_party/**
 
 ## The cast
