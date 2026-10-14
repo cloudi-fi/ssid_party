@@ -20,6 +20,9 @@ body{margin:0;font-family:var(--font-sans);color:var(--ink);background:var(--sur
   padding:calc(env(safe-area-inset-top,0px) + 14px) 14px calc(env(safe-area-inset-bottom,0px) + 40px);
   line-height:1.6;-webkit-font-smoothing:antialiased}
 .wrap{max-width:800px;margin:0 auto}
+/* large screens: scale the whole page, as browser zoom would */
+@media (min-width:1200px){ .wrap{zoom:1.25} }
+@media (min-width:1800px){ .wrap{zoom:1.5} }
 h1{font-family:var(--font-sfx);font-weight:400;font-size:46px;line-height:.95;letter-spacing:1px;margin:0 0 4px}
 .tagline{font-family:var(--font-comic);font-size:19px;color:var(--ink-2);margin:0 0 12px}
 .hint{font-size:13px;color:var(--ink-2);margin:0 0 14px}

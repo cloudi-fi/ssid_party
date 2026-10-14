@@ -39,7 +39,7 @@ function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=n
     <line x1="${cx}" y1="${cy+16}" x2="${cx}" y2="${cy+54}" ${Z}/><line x1="${cx}" y1="${cy+26}" x2="${cx-16}" y2="${cy+42}" ${Z}/><line x1="${cx}" y1="${cy+26}" x2="${cx+16}" y2="${cy+42}" ${Z}/><line x1="${cx}" y1="${cy+54}" x2="${cx-12}" y2="${cy+82}" ${Z}/><line x1="${cx}" y1="${cy+54}" x2="${cx+12}" y2="${cy+82}" ${Z}/>
     <circle cx="${cx}" cy="${cy}" r="16" fill="var(--surface)" stroke="currentColor" stroke-width="2.4"/><ellipse cx="${cx-5.5}" cy="${cy-2}" rx="3.2" ry="3.8" fill="var(--ink)"/><ellipse cx="${cx+5.5}" cy="${cy-2}" rx="3.2" ry="3.8" fill="var(--ink)"/><path d="M${cx-6} ${cy+7} l3 -3 l3 3 l3 -3 l3 3" fill="none" stroke="var(--ink)" stroke-width="1.4"/>
     ${key==="dave"?(phone==="iot"?"":`<rect x="${cx-28}" y="${cy+30}" width="12" height="20" rx="3.5" fill="var(--surface)" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/>`):""}
-    <text x="${cx}" y="${FLOOR+14}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${c.name}</text></g>`;
+    <text x="${cx}" y="${FLOOR+19}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${c.name}</text></g>`;
   }
   const eyes = c.acc==="shades" ? "" :
     `<circle cx="${cx-5}" cy="${cy-2}" r="1.7" fill="var(--ink)"/><circle cx="${cx+5}" cy="${cy-2}" r="1.7" fill="var(--ink)"/>`;
@@ -62,7 +62,7 @@ function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=n
       ? `<circle cx="${cx}" cy="${cy}" r="16" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/><g class="spinner"><circle cx="${cx}" cy="${cy}" r="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="26 74" stroke-linecap="round"/></g>`
       : `<circle cx="${cx}" cy="${cy}" r="16" fill="var(--surface)" stroke="currentColor" stroke-width="2.4"/>`}
     ${eyes}${mouth}${accStr}${bandEl}
-    <text x="${cx}" y="${FLOOR+14}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${c.name}</text>
+    <text x="${cx}" y="${FLOOR+19}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${c.name}</text>
   </g>`;
 }
 
@@ -136,7 +136,7 @@ function rayDesk(cx){
   s+=`<rect x="${cx-10}" y="${cy-5}" width="9" height="5.5" rx="1.5" fill="var(--ink)"/><rect x="${cx+1}" y="${cy-5}" width="9" height="5.5" rx="1.5" fill="var(--ink)"/><line x1="${cx-1}" y1="${cy-3}" x2="${cx+1}" y2="${cy-3}" stroke="var(--ink)" stroke-width="1.5"/>`;
   s+=`<path d="M${cx-4} ${cy+5} q4 3.5 8 0" fill="none" stroke="var(--ink)" stroke-width="1.3" stroke-linecap="round"/>`;
   s+=`</g>`;
-  s+=`<text x="${cx}" y="${FLOOR+14}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${CH.ray.name}</text>`;
+  s+=`<text x="${cx}" y="${FLOOR+19}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${CH.ray.name}</text>`;
   return s+`</g>`;
 }
 
