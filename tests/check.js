@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Exhaustive consistency check for wifi-captive-portal-comic.html
-// usage: node tests/check.js [path/to/wifi-captive-portal-comic.html]
+// Exhaustive consistency check for index.html
+// usage: node tests/check.js [path/to/index.html]
 // Enumerates every valid criteria combination (DFS over applicable options), walks every story and reports:
 //   loop / dangling (a story that neither ends nor reaches the dancefloor) / unreached nodes /
 //   "undefined" or NaN in any rendered view / speech-bubble overlaps or out-of-bounds in comic panels /
 //   a current option hidden from its title menu / box or chip collisions in the decision diagram.
 const fs=require("fs");
-const file=process.argv[2]||"wifi-captive-portal-comic.html";
+const file=process.argv[2]||"index.html";
 const html=fs.readFileSync(file,"utf8");
 const code=html.match(/<script>([\s\S]*)<\/script>/)[1];
 const els={};function el(id){return els[id]||(els[id]={id,hidden:false,innerHTML:"",value:"",setAttribute(){}});}

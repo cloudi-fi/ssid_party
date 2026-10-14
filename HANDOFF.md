@@ -20,7 +20,7 @@ Goal 3 is why the graph is declarative (criteria → decisions → panels) and w
 
 | File | What |
 |---|---|
-| `wifi-captive-portal-comic.html` | The whole artifact: CSS, SVG drawing code, story graph, four renderers, URL state. Single self-contained file, no dependencies, no network. |
+| `index.html` | The whole artifact: CSS, SVG drawing code, story graph, four renderers, URL state. Single self-contained file, no dependencies, no network. |
 | `tests/check.js` | Exhaustive consistency check (Node, no dependencies). Run it after **every** edit, see §4. |
 | `HANDOFF.md` | This note. |
 
@@ -48,7 +48,7 @@ Helpers worth knowing: `FULL(text)` expands first names to full names in titles,
 ## 4. Editing and verification workflow
 
 1. Edit the HTML (string replacement in a script is the safest way to touch the graph without breaking the rest).
-2. `node tests/check.js wifi-captive-portal-comic.html` — must end with `issues: 0`. It enumerates every valid criteria combination, walks every story and reports loops, dangling stories, unreachable nodes, `undefined`/`NaN` in any view, bubble overlaps or out-of-bounds in panels, a selected option hidden from its own menu, and box/chip collisions in the decision diagram. Last known good: 232 083 valid states, 1 059 distinct stories, 0 issues.
+2. `node tests/check.js index.html` — must end with `issues: 0`. It enumerates every valid criteria combination, walks every story and reports loops, dangling stories, unreachable nodes, `undefined`/`NaN` in any view, bubble overlaps or out-of-bounds in panels, a selected option hidden from its own menu, and box/chip collisions in the decision diagram. Last known good: 232 083 valid states, 1 059 distinct stories, 0 issues.
 3. Look at the result. Rasterising a panel helps: call `panelSVG(id, state)` from a tiny Node script (same DOM stubs as the harness), replace the CSS variables, and render with `cairosvg` or `rsvg-convert`.
 4. Keep a backup of the previous version before structural changes.
 
