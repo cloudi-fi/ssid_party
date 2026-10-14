@@ -20,18 +20,24 @@ Goal 3 is why the graph is declarative (criteria → decisions → panels) and w
 
 | File | What |
 |---|---|
-| `index.html` | The whole artifact: CSS, SVG drawing code, story graph, four renderers, URL state. Single self-contained file, no dependencies, no network. |
+| `index.html` | Markup only: title, view tabs, the four view containers, and the scripts in load order. |
+| `css/style.css` | All styles, starting with the `@font-face` rules of the self-hosted fonts. |
+| `js/draw.js` | Drawing: characters, bubbles, backgrounds. |
+| `js/graph.js` | Story graph: criteria, defaults, titles, nodes, path resolution, `normalize`. No DOM: loads alone in Node. |
+| `js/views.js` | `panelSVG` and the four renderers. |
+| `js/main.js` | State in the URL hash, event handlers, startup. |
+| `fonts/` | Bangers, Patrick Hand and Inter (latin subset, woff2) with their OFL licences. |
 | `tests/check.js` | Exhaustive consistency check (Node, no dependencies). Run it after **every** edit, see §4. |
 | `HANDOFF.md` | This note. |
 
-The artifact was developed and published as a claude.ai artifact; in the repo it is a static page and can be served as-is (GitHub Pages works).
+The project started as a claude.ai artifact. It is now a static site with no build step, no dependencies and no external requests, published by GitHub Pages from `main` (repository root): https://cloudi-fi.github.io/ssid_party/. Opening `index.html` from disk works too.
 
 ## 3. How it is built
 
-Everything is in one `<script>` in the HTML. Landmarks, in file order:
+The JS is four classic scripts (not ES modules) sharing one global scope, loaded by `index.html` in this order: `draw.js` → `graph.js` → `views.js` → `main.js`. Code that runs at load time may only use what an earlier file declares; calls made later from inside functions can reach any file. `tests/check.js` loads the scripts the same way, so a wrong order fails the check. Landmarks, in load order:
 
-- **Drawing**: `figure(key, cx, opts)` draws a character (options: `band`, `mood`, `flip`, `headSpin`, `phone`, `antennas`, `cloudHead`, `zombie`), `bubble(...)` draws speech/thought/shout bubbles (wrap at 18 characters), background helpers (`interior`, `danceDoorHall`, `kiosk`, `desk`, …).
-- **`CHOICES`** — the criteria. Each has a question (`q`, comic wording), a technical name (`tq`) and options `{v, label, t, when}`. `when(state)` says whether the option applies; a criterion with no applicable option is "not applicable" (shown as `none` in YAML). **Declaration order matters**: a criterion whose `when` depends on another criterion must be declared after it (the test harness enumerates in that order).
+- **Drawing** (`draw.js`): `figure(key, cx, opts)` draws a character (options: `band`, `mood`, `flip`, `headSpin`, `phone`, `antennas`, `cloudHead`, `zombie`), `bubble(...)` draws speech/thought/shout bubbles (wrap at 18 characters), background helpers (`interior`, `danceDoorHall`, `kiosk`, `desk`, …).
+- **`CHOICES`** (`graph.js`, like everything down to `path`) — the criteria. Each has a question (`q`, comic wording), a technical name (`tq`) and options `{v, label, t, when}`. `when(state)` says whether the option applies; a criterion with no applicable option is "not applicable" (shown as `none` in YAML). **Declaration order matters**: a criterion whose `when` depends on another criterion must be declared after it (the test harness enumerates in that order).
 - **`DEF`** — default value of every criterion. The default story is the baseline everything else is a deviation from.
 - **`TITLES`** — per criterion and value, the panel title shown in the title dropdown of the panel that carries that choice. Strings or `state => string`.
 - **`N`** — the story graph. Two node kinds:
@@ -40,14 +46,14 @@ Everything is in one `<script>` in the HTML. Landmarks, in file order:
 - **`nextOf(id, state)`** resolves a decision. Map decisions fall back to the default value (or the first applicable option) when the stored value no longer applies.
 - **`normalize(state)`** rewrites impossible combinations after any change (vendor ↔ enforcement, Meraki/Mist RADIUS-optional, FortiGate-only modes, etc.).
 - **`path(state)`** / **`fullPath(state)`** — the panel ids / all node ids of the current story.
-- **Renderers**: `renderComic`, `renderSeq`, `renderDecision` (auto-layout flowchart, `layout()`), `renderCriteria` (YAML in/out, `CRIT` lists the criteria in YAML order, `derived(state)` computes the read-only block).
-- **State** lives in the URL hash: only non-default values plus `view=…`. Old links keep working as long as criteria keys and values are not renamed (see §9 about stable ids).
+- **Renderers** (`views.js`): `renderComic`, `renderSeq`, `renderDecision` (auto-layout flowchart, `layout()`), `renderCriteria` (YAML in/out, `CRIT` lists the criteria in YAML order, `derived(state)` computes the read-only block).
+- **State** (`main.js`) lives in the URL hash: only non-default values plus `view=…`. Old links keep working as long as criteria keys and values are not renamed (see §9 about stable ids).
 
 Helpers worth knowing: `FULL(text)` expands first names to full names in titles, `NB(text)` makes composite names non-breaking, `cloud(s)`, `fwL(s)`, `greetK(s)` (who guards the door: `troller` or `phyre`), `roleCases(...)`.
 
 ## 4. Editing and verification workflow
 
-1. Edit the HTML (string replacement in a script is the safest way to touch the graph without breaking the rest).
+1. Edit the file concerned, usually `js/graph.js` (string replacement in a script is the safest way to touch the graph without breaking the rest).
 2. `node tests/check.js index.html` — must end with `issues: 0`. It enumerates every valid criteria combination, walks every story and reports loops, dangling stories, unreachable nodes, `undefined`/`NaN` in any view, bubble overlaps or out-of-bounds in panels, a selected option hidden from its own menu, and box/chip collisions in the decision diagram. Last known good: 232 083 valid states, 1 059 distinct stories, 0 issues.
 3. Look at the result. Rasterising a panel helps: call `panelSVG(id, state)` from a tiny Node script (same DOM stubs as the harness), replace the CSS variables, and render with `cairosvg` or `rsvg-convert`.
 4. Keep a backup of the previous version before structural changes.
@@ -66,14 +72,14 @@ Nightclub **SSID_PARTY**. The hall is the walled garden, the dancefloor door is 
 | **Dee Ashcipee** | DHCP | orange, cloakroom tickets; option 114 = a note on the ticket; skeleton devices next to her when zombies fill the quarantine |
 | **Cee Peahy** | Captive-Portal API (CPI) | violet, kiosk |
 | **Port Al** | the portal | green, bowtie, reception desk with a bell; head spinner when waiting |
-| **Heidi Pea** | IdP / SSO | fuchsia, badge |
+| **Ida Pee** | IdP / SSO | fuchsia, badge |
 | **Phyre Wall** | the firewall | red, flame; antennas when a FortiGate is controller *and* firewall; cloud-shaped head in cloud modes |
 
 Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it ever appears, sits between Conn Troller and Ray Dius (Ray's boss; §8).
 
 ## 6. Writing rules
 
-- **Names.** Titles use full names (automatic through `FULL()`). Direct address uses first names ("Hi Dave", "Hey Ray", "Hi Heidi"). Referring to a third party uses the full name ("See Dee Ashcipee", "Ask Cee Peahy first"). Port Al is always "Port Al". Composite names never break across lines (`NB()`).
+- **Names.** Titles use full names (automatic through `FULL()`). Direct address uses first names ("Hi Dave", "Hey Ray", "Hi Ida"). Referring to a third party uses the full name ("See Dee Ashcipee", "Ask Cee Peahy first"). Port Al is always "Port Al". Composite names never break across lines (`NB()`).
 - **Titles** are sentences in the story's voice, never "what if…". Alternatives of a choice appear as other titles in the dropdown of the same panel. There is no notion of "main story"; the default is just the default.
 - **Dialogue** is short and in character; bubbles wrap at 18 characters, shout bubbles take the speaker's colour. Thought bubbles for inner state.
 - **Footer** = technical tag (what this step is, e.g. `802.11 · assoc`, `DHCP · no option 114`) above a full-width note (why it happens, what it implies). The note is where the technical truth lives; keep it precise and reusable by support.

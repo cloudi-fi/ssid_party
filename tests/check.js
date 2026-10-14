@@ -1,18 +1,21 @@
 #!/usr/bin/env node
-// Exhaustive consistency check for index.html
+// Exhaustive consistency check for index.html and the scripts it loads
 // usage: node tests/check.js [path/to/index.html]
 // Enumerates every valid criteria combination (DFS over applicable options), walks every story and reports:
 //   loop / dangling (a story that neither ends nor reaches the dancefloor) / unreached nodes /
 //   "undefined" or NaN in any rendered view / speech-bubble overlaps or out-of-bounds in comic panels /
 //   a current option hidden from its title menu / box or chip collisions in the decision diagram.
-const fs=require("fs");
+const fs=require("fs"), nodePath=require("path"), vm=require("vm");
 const file=process.argv[2]||"index.html";
 const html=fs.readFileSync(file,"utf8");
-const code=html.match(/<script>([\s\S]*)<\/script>/)[1];
+// the page's classic scripts, in page order, each run as its own script in one shared context (as in a browser)
+const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>nodePath.join(nodePath.dirname(file),m[1]));
 const els={};function el(id){return els[id]||(els[id]={id,hidden:false,innerHTML:"",value:"",setAttribute(){}});}
-global.document={body:{classList:{remove(){},toggle(){return true},contains(){return false}}},getElementById:el,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
-global.window={addEventListener(){},scrollBy(){},scrollTo(){}};global.location={hash:"",pathname:"/",search:"",href:"https://x/y"};global.history={replaceState(){}};
-eval(code+`;globalThis.T={NN:N,P:path,FP:fullPath,CC:CHOICES,DD:DEF,rc:renderComic,rs:renderSeq,rd:renderDecision,set:s=>{STATE=s},L:layout,norm:normalize,opts:optsFor};`);
+const ctx=vm.createContext({console,URLSearchParams,
+  document:{body:{classList:{remove(){},toggle(){return true},contains(){return false}}},getElementById:el,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}},
+  window:{addEventListener(){},scrollBy(){},scrollTo(){}},location:{hash:"",pathname:"/",search:"",href:"https://x/y"},history:{replaceState(){}}});
+for(const f of scripts) vm.runInContext(fs.readFileSync(f,"utf8"),ctx,{filename:f});
+const T=vm.runInContext(`({NN:N,P:path,FP:fullPath,CC:CHOICES,DD:DEF,rc:renderComic,rs:renderSeq,rd:renderDecision,set:s=>{STATE=s},L:layout,norm:normalize,opts:optsFor})`,ctx);
 const {NN,P,FP,CC,DD,rc,rs,rd}=T;
 function rects(f,rx){return [...f.matchAll(new RegExp('<rect x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.]+)" height="([\\d.]+)" rx="'+rx+'"','g'))].map(m=>({x:+m[1],y:+m[2],w:+m[3],h:+m[4]}));}
 function ov(a,b){return a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;}
