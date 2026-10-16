@@ -69,6 +69,7 @@ button:focus-visible{outline:2px solid var(--c-dave);outline-offset:2px}
 .whatif{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:9px 11px;border-top:1.5px dashed var(--ink-2);background:var(--surface)}
 g.chip{cursor:pointer} g.chip:focus-visible rect{stroke:var(--c-dave);stroke-width:2.5} g.chip:focus{outline:none}
 .decinner{min-width:760px;padding:6px 0}
+.decpath{display:flex;justify-content:center}
 .wq{font-family:var(--font-comic);font-size:16px;color:var(--ink);margin-right:2px}
 .wopt{font-family:var(--font-comic);font-size:15px;line-height:1.15;color:var(--ink);background:var(--surface);border:1.5px dashed var(--ink-2);border-radius:14px;padding:4px 10px;cursor:pointer;text-align:left}
 .wopt:hover{border-color:var(--ink)}

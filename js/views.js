@@ -164,7 +164,35 @@ function layout(){
   }
   return LAYOUT={E,box,row,col,ncol,nrow,W:DPAD*2+ncol*DCW,H:40+nrow*DROW};
 }
+// a step is framed in the colour of the actor that handles it, as in the sequence-diagram lanes: the actor most present in
+// its messages besides the device (ties go to the more specific component); device-only steps get the device's colour
+const ACTOR_PRIO=["ray","dippy","chippy","soso","phyre","porter","troller"];
+function stepActor(id,s){
+  const cnt={}; for(const m of V(N[id].seq,s)||[]) for(const a of [m.f,m.t]) if(a!=="dave") cnt[a]=(cnt[a]||0)+1;
+  const ks=Object.keys(cnt);
+  return ks.length?ks.sort((a,b)=>cnt[b]-cnt[a]||ACTOR_PRIO.indexOf(a)-ACTOR_PRIO.indexOf(b))[0]:"dave";
+}
+// a step's label lines; endings get a ✓ (Internet) or ✕ (failure) in front
+function stepText(id,lines,x,top){
+  const mark=N[id].ok?`<tspan fill="var(--c-porter)" font-weight="700">✓</tspan> `:N[id].end?`<tspan fill="var(--c-fail)" font-weight="700">✕</tspan> `:"";
+  return lines.map((l,j)=>`<text x="${x}" y="${top+18+j*14}" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">${j?"":mark}${esc(l)}</text>`).join("");
+}
+// without "Show criteria": only the steps of the current story, in one column (no diamonds, choices or other branches)
+function renderPath(){
+  const ids=path(STATE), gap=26, pad=16, w=DBW+pad*2, x=w/2;
+  let y=pad, s="";
+  ids.forEach((id,i)=>{
+    const lines=wrap(N[id].tag,26), h=lines.length*14+14, stroke=CH[stepActor(id,STATE)].color;
+    if(i) s+=`<line x1="${x}" y1="${y-gap}" x2="${x}" y2="${y-7}" stroke="var(--ink)" stroke-width="2.2"/><polygon points="${x},${y} ${x-5},${y-7} ${x+5},${y-7}" fill="var(--ink)"/>`;
+    s+=`<rect x="${x-DBW/2}" y="${y}" width="${DBW}" height="${h}" rx="6" fill="var(--surface)" stroke="${stroke}" stroke-width="2"/>`+stepText(id,lines,x,y);
+    y+=h+gap;
+  });
+  const H=y-gap+pad;
+  document.getElementById("decision").innerHTML=`<p class="tintro">The steps of the current story, top to bottom. Show criteria to see every branch and switch between them.</p><div class="seqscroll"><div class="decinner decpath">
+    <svg viewBox="0 0 ${w} ${H}" width="${w}" height="${H}" role="img" aria-label="Decision diagram, current story">${s}</svg></div></div>`;
+}
 function renderDecision(){
+  if(!document.body.classList.contains("crit")) return renderPath();
   const L=layout(), fp=fullPath(STATE), onN=new Set(fp), onE=new Set();
   for(let i=0;i<fp.length-1;i++) onE.add(fp[i]+">"+fp[i+1]);
   let e="", n="", chips="";
@@ -203,9 +231,7 @@ function renderDecision(){
       n+=`<g ${op}><polygon points="${b.x},${b.top} ${b.x+82},${cy} ${b.x},${b.bot} ${b.x-82},${cy}" fill="var(--surface-2)" stroke="var(--ink)" stroke-width="${act?1.8:1.2}"/>
         <text x="${b.x}" y="${cy+4}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="11" fill="var(--ink)">${esc(N[id].dec)}</text></g>`;
     } else {
-      const endN=N[id].end, ok=N[id].ok, stroke=endN?"var(--c-fail)":ok?"var(--c-porter)":"var(--ink)";
-      n+=`<g ${op}><rect x="${b.x-DBW/2}" y="${b.top}" width="${DBW}" height="${b.h}" rx="6" fill="var(--surface)" stroke="${stroke}" stroke-width="${act||endN||ok?2:1.2}"/>`+
-        b.lines.map((l,j)=>`<text x="${b.x}" y="${b.top+18+j*14}" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">${esc(l)}</text>`).join("")+`</g>`;
+      n+=`<g ${op}><rect x="${b.x-DBW/2}" y="${b.top}" width="${DBW}" height="${b.h}" rx="6" fill="var(--surface)" stroke="${CH[stepActor(id,STATE)].color}" stroke-width="${act?2:1.2}"/>`+stepText(id,b.lines,b.x,b.top)+`</g>`;
     }
   }
   document.getElementById("decision").innerHTML=`<p class="tintro">Start at the top left. Scroll sideways to explore every branch; the bold path is the current configuration. Click a label under a diamond to switch branch.</p><div class="seqscroll"><div class="decinner" style="min-width:${L.W}px">

@@ -425,7 +425,7 @@ const cloud=s=>s.integ==="cloud";
 const trans=s=>cloud(s)&&s.transient==="yes";
 const zs=s=>s.fwvendor==="zscaler";
 const FWN=s=>zs(s)?"Zscaler":"Netskope";
-N.dInteg={dec:"MAC checked at the door?",next:{dl:"MAC checked at the door?",cases:[
+N.dInteg={dec:"MAB at the door?",next:{dl:"MAB at the door?",cases:[
   {when:s=>cloud(s),l:"cloud firewall",set:{integ:"cloud"},to:"n3c"},
   {when:s=>rayCheckers(s),l:"MAB: RADIUS checks the MAC",set:{integ:"controllerMab"},to:"n3"},
   {l:"no MAB",set:{integ:"controller"},to:"n3n"}]}};

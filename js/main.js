@@ -10,13 +10,13 @@ function readHash(){
   VIEW=["comic","sequence","decision","criteria"].includes(v)?v:"comic";
   // view toggles, kept only in the views that show their button
   document.body.classList.toggle("wide",h.get("fullwidth")==="1"&&(VIEW==="sequence"||VIEW==="decision"));
-  document.body.classList.toggle("crit",h.get("showcriteria")==="1"&&VIEW==="sequence");
+  document.body.classList.toggle("crit",h.get("showcriteria")==="1"&&(VIEW==="sequence"||VIEW==="decision"));
 }
 function writeHash(){
   const h=new URLSearchParams();
   if(VIEW!=="comic") h.set("view",VIEW);
   if(document.body.classList.contains("wide")&&(VIEW==="sequence"||VIEW==="decision")) h.set("fullwidth","1");
-  if(document.body.classList.contains("crit")&&VIEW==="sequence") h.set("showcriteria","1");
+  if(document.body.classList.contains("crit")&&(VIEW==="sequence"||VIEW==="decision")) h.set("showcriteria","1");
   for(const k in CHOICES) if(STATE[k]!==DEF[k]) h.set(k,STATE[k]);
   const s=h.toString();
   try{ history.replaceState(null,"",s?"#"+s:location.pathname+location.search); }catch(e){}
@@ -26,7 +26,7 @@ function render(anchorKey,oldTop){
   document.querySelectorAll(".viewtab").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===VIEW));
   ["comic","sequence","decision","criteria"].forEach(v=>document.getElementById(v).hidden=(v!==VIEW));
   const wbtn=document.getElementById("widebtn"); if(wbtn){ const w=VIEW==="decision"||VIEW==="sequence"; wbtn.hidden=!w; if(!w) document.body.classList.remove("wide"); wbtn.setAttribute("aria-pressed",document.body.classList.contains("wide")); }
-  const cbtn=document.getElementById("critbtn"); if(cbtn){ const c=VIEW==="sequence"; cbtn.hidden=!c; if(!c) document.body.classList.remove("crit"); cbtn.setAttribute("aria-pressed",document.body.classList.contains("crit")); }
+  const cbtn=document.getElementById("critbtn"); if(cbtn){ const c=VIEW==="sequence"||VIEW==="decision"; cbtn.hidden=!c; if(!c) document.body.classList.remove("crit"); cbtn.setAttribute("aria-pressed",document.body.classList.contains("crit")); }
   if(VIEW==="comic") renderComic(); else if(VIEW==="sequence") renderSeq(); else if(VIEW==="decision") renderDecision(); else renderCriteria();
   if(anchorKey!=null && oldTop!=null && VIEW==="comic"){
     const el=document.querySelector(`#comic [data-choice="${anchorKey}"]`);

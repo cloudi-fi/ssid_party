@@ -27,6 +27,7 @@ Goal 3 is why the graph is declarative (criteria → decisions → panels) and w
 | `js/views.js` | `panelSVG` and the four renderers. |
 | `js/main.js` | State in the URL hash, event handlers, startup. |
 | `fonts/` | Bangers, Patrick Hand and Inter (latin subset, woff2) with their OFL licences. |
+| `img/favicon.ico` | Cloudi-Fi favicon (from super.cloudi-fi.net). |
 | `img/cloudi-fi-logo-mini.svg` | The Cloudi-Fi logo shown before the names of Cloudi-Fi's own services (copied from the `ui-kit` repo). |
 | `img/vendors/` | Controller and firewall brand logos, used on the sequence-diagram lane headers only (copied from the `ui-kit` repo). |
 | `img/os/` | Apple and Android icons for the Device lane header (Simple Icons, CC0; the Android robot is CC BY 3.0, attributed in the README). IoT uses the 🤖 emoji. |
@@ -95,7 +96,7 @@ Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it 
 
 - Scrolling comic, two panels per row. Panel = numbered title (dropdown with optgroups when a choice applies; menu only shown if more than one option applies), scene SVG (full-bleed interior, floor edge to edge, names under the floor), footer.
 - Header: on desktop (≥ 1025 px) the view tabs sit right of the title, with the tool buttons ("Show criteria", "Full width") under them on the tagline line (out of the tab row, so the tabs never move); on tablets and phones the tabs go below the tagline.
-- Tabs: Comic / Sequence diagram (technical participant names, coloured lanes, sticky header synced horizontally, messages only by default; a "Show criteria" toggle, off by default, adds the `alt` frames with the criterion and its clickable choice chips; red end markers, "Full width" button) / Decision diagram (auto-layout flowchart; diamonds with clickable value chips below; current path in bold; "Full width") / Criteria (editable YAML, validation, Apply or Ctrl+Enter, derived block, share link).
+- Tabs: Comic / Sequence diagram (technical participant names, coloured lanes, sticky header synced horizontally, messages only by default; a "Show criteria" toggle, off by default, adds the `alt` frames with the criterion and its clickable choice chips; red end markers, "Full width" button) / Decision diagram (steps framed in the colour of the actor that handles them, as in the sequence-diagram lanes: the actor most present in the step's messages besides the device, ties going to the more specific component; endings marked ✓ or ✕; the current story's steps in one column by default; "Show criteria", shared with the sequence diagram, shows the auto-layout flowchart of every branch: diamonds with clickable value chips below, current path in bold; "Full width") / Criteria (editable YAML, validation, Apply or Ctrl+Enter, derived block, share link).
 - Every control that changes a criterion goes through the same state → `normalize` → re-render path. Never special-case a view.
 
 ## 8. Technical truths the graph encodes

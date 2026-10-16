@@ -12,9 +12,10 @@ const html=fs.readFileSync(file,"utf8");
 // the page's classic scripts, in page order, each run as its own script in one shared context (as in a browser)
 const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>nodePath.join(nodePath.dirname(file),m[1]));
 const els={};function el(id){return els[id]||(els[id]={id,hidden:false,innerHTML:"",value:"",setAttribute(){}});}
-// the stubbed body reports the "crit" class, so the sequence diagram is rendered with its criteria shown (its fuller variant)
+// the stubbed body reports the "crit" class while showCrit is true: diagrams are checked with and without their criteria
+let showCrit=true;
 const ctx=vm.createContext({console,URLSearchParams,
-  document:{body:{classList:{remove(){},toggle(){return true},contains(c){return c==="crit"}}},getElementById:el,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}},
+  document:{body:{classList:{remove(){},toggle(){return true},contains(c){return c==="crit"&&showCrit}}},getElementById:el,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}},
   window:{addEventListener(){},scrollBy(){},scrollTo(){}},location:{hash:"",pathname:"/",search:"",href:"https://x/y"},history:{replaceState(){}}});
 for(const f of scripts) vm.runInContext(fs.readFileSync(f,"utf8"),ctx,{filename:f});
 const T=vm.runInContext(`({NN:N,P:path,FP:fullPath,CC:CHOICES,DD:DEF,rc:renderComic,rs:renderSeq,rd:renderDecision,set:s=>{STATE=s},L:layout,norm:normalize,opts:optsFor})`,ctx);
@@ -33,7 +34,9 @@ for(const s of uniq.values()){
   if(new Set(fp).size!==fp.length){issues++;console.log("loop",JSON.stringify(s));}
   const last=NN[fp[fp.length-1]]; if(!last.end&&!last.ok){issues++;console.log("dangling",fp[fp.length-1],JSON.stringify(s));}
   const key=P(s).join(","); if(stories.has(key)) continue; stories.add(key);
-  T.set({...s}); rc(); rs(); rd();
+  T.set({...s}); showCrit=false; rs(); rd();
+  for(const k of ["sequence","decision"]) if(/undefined|NaN/.test(els[k].innerHTML)){issues++;console.log("bad",k,"(no criteria)",JSON.stringify(s));}
+  showCrit=true; rc(); rs(); rd();
   for(const k of ["comic","sequence","decision"]) if(/undefined|NaN/.test(els[k].innerHTML)){issues++;console.log("bad",k,JSON.stringify(s));}
   els.comic.innerHTML.split("<figure").slice(1).forEach((f,i)=>{const r=rects(f,13);for(let a=0;a<r.length;a++){if(r[a].x<4||r[a].x+r[a].w>436||r[a].y<4){issues++;console.log("oob",P(s)[i],JSON.stringify(s));}for(let b=a+1;b<r.length;b++)if(ov(r[a],r[b])){issues++;console.log("overlap",P(s)[i],JSON.stringify(s));}}});
   els.comic.innerHTML.split("<figure").slice(1).forEach((f,i)=>{const nm=[...f.matchAll(/<g class="nm" data-x0="([\d.-]+)" data-x1="([\d.-]+)"/g)].map(m=>[+m[1],+m[2]]);

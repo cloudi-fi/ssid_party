@@ -28,8 +28,8 @@ In the comic, the Cloudi-Fi logo before a name marks Cloudi-Fi's own services: P
 ## Four views of the same story
 
 - **Comic**: the story, panel by panel. A dropdown in a panel's title shows the other ways that step can go.
-- **Sequence diagram**: the same steps as messages between the network components.
-- **Decision diagram**: every branch the story can take, with the current path in bold.
+- **Sequence diagram**: the same steps as messages between the network components. "Show criteria" adds the decision points and their choices.
+- **Decision diagram**: the steps of the current story, top to bottom. "Show criteria" reveals every branch the story can take, with the current path in bold.
 - **Criteria**: the scenario as flat, editable YAML.
 
 You can change a choice from any view: a panel title, a diagram chip or the YAML. All four views then follow.
@@ -63,7 +63,7 @@ js/graph.js      story graph: criteria, steps, path resolution (no DOM)
 js/views.js      comic, sequence, decision and criteria renderers
 js/main.js       state in the URL, events, startup
 fonts/           self-hosted fonts and their licences
-img/             the Cloudi-Fi logo, and OS and vendor logos for the sequence diagram
+img/             the Cloudi-Fi favicon and logo, and OS and vendor logos for the sequence diagram
 tests/check.js   exhaustive consistency check
 ```
 
