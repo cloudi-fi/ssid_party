@@ -9,15 +9,17 @@
 <body>
 <div class="wrap">
   <h2 class="sr-only">A scroll-down comic strip, two panels per row, showing step by step how a device joins a Wi-Fi network, is held captive, talks to the captive-portal API, registers via single sign-on, and finally reaches the internet.</h2>
-  <h1>SSID_PARTY</h1>
-  <p class="tagline">A night at the captive portal.</p>
-  <nav class="views" role="tablist" aria-label="View">
-    <button type="button" class="viewtab" role="tab" data-view="comic">Comic</button>
-    <button type="button" class="viewtab" role="tab" data-view="sequence">Sequence diagram</button>
-    <button type="button" class="viewtab" role="tab" data-view="decision">Decision diagram</button>
-    <button type="button" class="viewtab" role="tab" data-view="criteria">Criteria</button>
-    <button type="button" class="widebtn" id="widebtn" aria-pressed="false" hidden>Full width</button>
-  </nav>
+  <header class="top">
+    <h1>SSID_PARTY</h1>
+    <p class="tagline">A night at the captive portal.</p>
+    <nav class="views" role="tablist" aria-label="View">
+      <button type="button" class="viewtab" role="tab" data-view="comic">Comic</button>
+      <button type="button" class="viewtab" role="tab" data-view="sequence">Sequence diagram</button>
+      <button type="button" class="viewtab" role="tab" data-view="decision">Decision diagram</button>
+      <button type="button" class="viewtab" role="tab" data-view="criteria">Criteria</button>
+      <button type="button" class="widebtn" id="widebtn" aria-pressed="false" hidden>Full width</button>
+    </nav>
+  </header>
   <div class="comic" id="comic"></div>
   <div id="sequence" hidden></div>
   <div id="decision" hidden></div>

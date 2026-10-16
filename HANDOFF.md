@@ -27,6 +27,9 @@ Goal 3 is why the graph is declarative (criteria → decisions → panels) and w
 | `js/views.js` | `panelSVG` and the four renderers. |
 | `js/main.js` | State in the URL hash, event handlers, startup. |
 | `fonts/` | Bangers, Patrick Hand and Inter (latin subset, woff2) with their OFL licences. |
+| `img/cloudi-fi-logo-mini.svg` | The Cloudi-Fi logo shown before the names of Cloudi-Fi's own services (copied from the `ui-kit` repo). |
+| `img/vendors/` | Controller and firewall brand logos, used on the sequence-diagram lane headers only (copied from the `ui-kit` repo). |
+| `img/os/` | Apple and Android icons for the Device lane header (Simple Icons, CC0; the Android robot is CC BY 3.0, attributed in the README). IoT uses the 🤖 emoji. |
 | `tests/check.js` | Exhaustive consistency check (Node, no dependencies). Run it after **every** edit, see §4. |
 | `HANDOFF.md` | This note. |
 
@@ -47,14 +50,14 @@ The JS is four classic scripts (not ES modules) sharing one global scope, loaded
 - **`normalize(state)`** rewrites impossible combinations after any change (vendor ↔ enforcement, Meraki/Mist RADIUS-optional, FortiGate-only modes, etc.).
 - **`path(state)`** / **`fullPath(state)`** — the panel ids / all node ids of the current story.
 - **Renderers** (`views.js`): `renderComic`, `renderSeq`, `renderDecision` (auto-layout flowchart, `layout()`), `renderCriteria` (YAML in/out, `CRIT` lists the criteria in YAML order, `derived(state)` computes the read-only block).
-- **State** (`main.js`) lives in the URL hash: only non-default values plus `view=…`. Old links keep working as long as criteria keys and values are not renamed (see §9 about stable ids).
+- **State** (`main.js`) lives in the URL hash: only non-default values plus `view=…`. Old links keep working as long as criteria keys and values are not renamed; links using values renamed since publication are rewritten by `legacyHash` (`graph.js`), which `readHash` applies (see §9 about stable ids).
 
 Helpers worth knowing: `FULL(text)` expands first names to full names in titles, `NB(text)` makes composite names non-breaking, `cloud(s)`, `fwL(s)`, `greetK(s)` (who guards the door: `troller` or `phyre`), `roleCases(...)`.
 
 ## 4. Editing and verification workflow
 
 1. Edit the file concerned, usually `js/graph.js` (string replacement in a script is the safest way to touch the graph without breaking the rest).
-2. `node tests/check.js index.html` — must end with `issues: 0`. It enumerates every valid criteria combination, walks every story and reports loops, dangling stories, unreachable nodes, `undefined`/`NaN` in any view, bubble overlaps or out-of-bounds in panels, a selected option hidden from its own menu, and box/chip collisions in the decision diagram. Last known good: 232 083 valid states, 1 059 distinct stories, 0 issues.
+2. `node tests/check.js index.html` — must end with `issues: 0`. It enumerates every valid criteria combination, walks every story and reports loops, dangling stories, unreachable nodes, `undefined`/`NaN` in any view, bubble overlaps or out-of-bounds in panels, a selected option hidden from its own menu, name labels (with their logo) overlapping or leaving the panel, and box/chip collisions in the decision diagram. Last known good: 171 351 valid states, 1 357 distinct stories, 0 issues.
 3. Look at the result. Rasterising a panel helps: call `panelSVG(id, state)` from a tiny Node script (same DOM stubs as the harness), replace the CSS variables, and render with `cairosvg` or `rsvg-convert`.
 4. Keep a backup of the previous version before structural changes.
 
@@ -62,18 +65,20 @@ The harness cannot see font rendering; bubble wrapping is computed from characte
 
 ## 5. The universe
 
-Nightclub **SSID_PARTY**. The hall is the walled garden, the dancefloor door is the Internet, the wristband is the authorization. Music notes always point right (and sit inside the door frame when the scene is outside).
+Nightclub **SSID_PARTY** (the SSID_PARTY sign is the entrance's lintel; speech bubbles may partly cover it). The hall is the walled garden, the dancefloor door is the Internet (the INTERNET sign is its lintel; speech bubbles may partly cover it), the wristband is the authorization. Music notes always point right (and sit inside the door frame when the scene is outside).
 
 | Character | Role | Look |
 |---|---|---|
 | **Dave Ice** | the device | blue; iPhone (blue screen), Android (green screen) or IP camera prop. Zombie rendering (dashed limbs, skull face) when stuck forever |
 | **Conn Troller** | the controller / NAS | cyan, antennas; "Conn" in dialogue |
 | **Ray Dius** | RADIUS | dark grey, shades, seated at a desk with the big ledger |
-| **Dee Ashcipee** | DHCP | orange, cloakroom tickets; option 114 = a note on the ticket; skeleton devices next to her when zombies fill the quarantine |
+| **Dee Ashcipee** | DHCP | orange, cloakroom tickets; option 114 = a note on the ticket; skeleton devices next to her when zombies fill the quarantine; cloud-shaped head when the DHCP is Cloudi-Fi's cloud DHCP |
 | **Cee Peahy** | Captive-Portal API (CPI) | violet, kiosk |
 | **Port Al** | the portal | green, bowtie, reception desk with a bell; head spinner when waiting |
 | **Ida Pee** | IdP / SSO | fuchsia, badge |
 | **Phyre Wall** | the firewall | red, flame; antennas when a FortiGate is controller *and* firewall; cloud-shaped head in cloud modes |
+
+The Cloudi-Fi logo before a name marks Cloudi-Fi's own services: Port Al, Cee Peahy, Ray Dius, and Dee Ashcipee with the cloud DHCP (`OURS()` in `graph.js`; also on the sequence-diagram lane headers). A cloud-shaped head marks the cloud variant of a character who also exists on site (Phyre Wall, Dee Ashcipee): the head says where the service runs, the logo says who runs it. Vendor logos stay out of the comic, where they would dilute the Cloudi-Fi marker; they appear only on the sequence-diagram lane headers (Device: Apple, Android, 🤖 for IoT; Controller: Cisco, Aruba, Fortinet, and for now Cisco for Meraki, Juniper for Mist, CommScope for Ruckus; Firewall: Zscaler, Netskope, Fortinet, only when a firewall is in the story).
 
 Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it ever appears, sits between Conn Troller and Ray Dius (Ray's boss; §8).
 
@@ -89,6 +94,7 @@ Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it 
 ## 7. UI and format rules
 
 - Scrolling comic, two panels per row. Panel = numbered title (dropdown with optgroups when a choice applies; menu only shown if more than one option applies), scene SVG (full-bleed interior, floor edge to edge, names under the floor), footer.
+- Header: on desktop (≥ 1025 px) the view tabs sit right of the title, with "Full width" under them on the tagline line (out of the tab row, so the tabs never move); on tablets and phones the tabs go below the tagline.
 - Tabs: Comic / Sequence diagram (technical participant names, coloured lanes, sticky header synced horizontally, `alt` frames with clickable chips, red end markers, "Full width" button) / Decision diagram (auto-layout flowchart; diamonds with clickable value chips below; current path in bold; "Full width") / Criteria (editable YAML, validation, Apply or Ctrl+Enter, derived block, share link).
 - Every control that changes a criterion goes through the same state → `normalize` → re-render path. Never special-case a view.
 
@@ -96,13 +102,15 @@ Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it 
 
 These were validated with the author; change them only with evidence.
 
-**Criteria (hash key → YAML name)**: `os`→`device_os` (ios default, android, iot) · `vendor`→`controller_vendor` (cisco-wlc default, aruba, meraki, mist, ruckus-ap, ruckus-smartzone, fortigate) · `integ`→`enforcement` (radius default = captive mode, mabOnly, noRadius Meraki/Mist only, fwLocal on-site FortiGate behind the controller, fwBoth FortiGate is controller + firewall, cloud) · `fwvendor`→`fw_vendor` (zscaler default, netskope, fortigate) · `transient` (cloud only, default no) · `radius`→`mab` (open default = Access-Accept base, reject, mab = known MAC; open hidden in mabOnly) · `dhcp` (on-prem: ok, conflict, exhausted; cloud: quarantine, whitelist, blacklist, zombies) · `hack`→`static_ip_bypass` (blacklist only) · `snooping`→`dhcp_snooping` (hack only) · `o114`→`option_114` (no default) · `visit` (ios + option 114: first, returning) · `done`→`cna_done` (iOS, CPI path) · `reg`→`registration` (sso, mfa, passkey, form, sms, email) · `smsexit`→`sms_notification` (type, tap).
+**Criteria (hash key → YAML name)**: `os`→`device_os` (ios default, android, iot) · `vendor`→`controller_vendor` (cisco-wlc default, aruba, meraki, mist, ruckus-ap, ruckus-smartzone, fortigate) · `integ`→`enforcement` (who guards the door, and whether they check the MAC with RADIUS at association (MAB): controller default = the controller runs the captive portal without MAB, controllerMab = same with MAB, mabOnly = MAB-only SSID, fwLocal / fwLocalMab on-site FortiGate behind the controller, fwBoth / fwBothMab FortiGate is controller + firewall, cloud; the panel-3 menu offers all of them) · `mlogin`→`meraki_login` (Meraki + controller only: grant default = grant URL, radius = RADIUS login) · `fwvendor`→`fw_vendor` (zscaler default, netskope, fortigate) · `transient` (cloud only, default no) · `radius`→`mab` (Ray's answer when the MAC is checked at the door: unknown default, known; n/a without MAB) · `qpolicy`→`meraki_quarantine_policy` (Meraki MAB with an unknown MAC: defined default, missing) · `dhcp` (on-prem: ok, conflict, exhausted; cloud: quarantine, whitelist, blacklist, zombies) · `hack`→`static_ip_bypass` (blacklist only) · `snooping`→`dhcp_snooping` (hack only) · `o114`→`option_114` (no default) · `visit` (ios + option 114: first, returning) · `done`→`cna_done` (iOS, CPI path) · `reg`→`registration` (sso, mfa, passkey, form, sms, email) · `smsexit`→`sms_notification` (type, tap).
 
-Schema conventions: one line per criterion, `none` when not applicable, `?` unknown, a list = candidates, a map = weighted probabilities (for the detection tool). Derived, read-only: `dhcp_hosting`, `portal_runs_in`, `app_switch_risk`, `final_auth`, `outcome`, `steps`.
+Schema conventions: one line per criterion, `none` when not applicable, `?` unknown, a list = candidates, a map = weighted probabilities (for the detection tool). Derived, read-only: `dhcp_hosting`, `mab_at_association`, `portal_runs_in`, `app_switch_risk`, `final_auth`, `outcome`, `steps`.
 
-**Vendors.** Cisco WLC, Aruba, Ruckus AP, FortiGate: redirect + RADIUS mandatory. Meraki: grant URL, RADIUS optional. Mist: signed return URL, RADIUS optional. Ruckus SmartZone: NBI API triggers a new Access-Request, RADIUS mandatory. In MAB-only SSIDs unknown MACs are ejected (IoT use case); in captive mode a MAB reject falls back to captive (device gets an IP) except on Meraki, which ejects.
+**Vendors.** Cisco WLC, Aruba, Ruckus AP, FortiGate: redirect, then RADIUS at login (the "one last double-check" step) — mandatory. Ruckus SmartZone: the NBI API triggers a new Access-Request, RADIUS mandatory. Meraki: grant URL (click-through, no RADIUS, nothing signed) or RADIUS login. Mist: always a signed authorization URL, no RADIUS at login. MAB at association is optional on every controller: without it, the controller admits every device into its captive role without asking RADIUS ("Conn doesn't even ask Ray").
 
-**Final authorization variants.** Controller login → RADIUS; firewall login → RADIUS; NBI → RADIUS; signed URL (stamp on the hand, no Ray); SAML with IP surrogate (cloud firewall); DHCP whitelist (portal bypassed, Zscaler only).
+**MAB with an unknown MAC.** Cloudi-Fi RADIUS answers Access-Reject on every vendor except Meraki. In captive mode the controller then falls back to its captive role (device gets an IP); on a MAB-only SSID the device is ejected (IoT use case). Meraki takes a rejected device off the SSID, so RADIUS answers Access-Accept with the group policy name `cloudifi-Quarantine` (Filter-Id) instead: if that group policy exists on the Meraki dashboard the device is admitted like any unregistered guest (on a MAB-only SSID it stays quarantined, no portal); if it doesn't, the device is refused at the door.
+
+**Final authorization variants.** Controller login → RADIUS; firewall login → RADIUS; NBI → RADIUS; Meraki grant URL (no Ray); Mist signed URL (stamp on the hand, no Ray); SAML with IP surrogate (cloud firewall); DHCP whitelist (portal bypassed, Zscaler only).
 
 **Cloud firewall.** Zscaler: SAML IdP-initiated. Netskope: SP-initiated. Transient mode: the portal hands a "visitor pass" first and the device carries the SAML assertion to the firewall.
 
@@ -126,7 +134,7 @@ Agreed order for the narrative branches:
 4. **802.1x** — a separate world: no portal, profile/VLAN by RADIUS, terminal reject; where the NAC appears.
 5. Later: re-authentication / CPI "blocked white page" / 3wi.fi reminder (adds a notion of time); network issue (broken redirect, walled-garden or DNS misconfiguration — very useful for support); MAC randomisation (attach to `visit`); sponsoring as a registration method (new character likely; not developed at Cloudi-Fi yet); zombie eviction if the quarantine ever gets purged.
 
-Pending confirmations: Android sign-in app and passkeys; whether a returning iPhone's lease still carries option 114 (observed: no probe and no CPI call anyway); what gets a stale iPhone out (forgetting the network on the phone is the only known way); address conflict only exists in the on-prem DHCP group; transient default stays `no`.
+Pending confirmations: Android sign-in app and passkeys; whether a returning iPhone's lease still carries option 114 (observed: no probe and no CPI call anyway); what gets a stale iPhone out (forgetting the network on the phone is the only known way); address conflict only exists in the on-prem DHCP group; transient default stays `no`; what Mist does on an Access-Reject at MAB (drawn as the usual captive fallback); Meraki with a missing `cloudifi-Quarantine` group policy refusing the device at the door (observed by the author; Meraki's wireless documentation doesn't say).
 
 Engineering, needed before agents rely on it:
 
@@ -140,7 +148,7 @@ Engineering, needed before agents rely on it:
 ## 10. Decisions already taken (do not reopen without reason)
 
 - Scroll layout, two per row; no slide mode.
-- Default story: iPhone, Cisco WLC, captive mode with RADIUS, open MAB, on-prem DHCP, **no option 114** (probe path), SSO registration.
+- Default story: iPhone, Cisco WLC, captive portal on the controller, **no MAB at association** (Ray is in the room but nobody asks him until login), on-prem DHCP, **no option 114** (probe path), SSO registration.
 - "What if" removed from all titles; alternatives are titles.
 - Footer tag above note, full width.
 - Light theme only.

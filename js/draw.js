@@ -27,7 +27,20 @@ function acc(type,cx,cy){
   }
 }
 
-function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=null,antennas=false,cloudHead=false,zombie=false}={}){
+// label widths in Inter 500 12px, measured in Chrome; other labels fall back to an estimate
+const LABEL_W={"Dave Ice":49.5,"Conn Troller":70.2,"Ray Dius":49.8,"Dee Ashcipee":79.6,"Cee Peahy":61.6,"Port Al":38.5,"Ida Pee":42.4,"Phyre Wall":60.6,
+  "Device":39.4,"Controller":56.8,"Firewall":44.2,"RADIUS":44.9,"DHCP":34.1,"CPI":19.8,"Portal":33.7,"IdP (SSO)":55.2};
+const labelW=t=>LABEL_W[t]||t.length*6.4;
+const LOGO=14, LOGO_GAP=4, CF_LOGO="img/cloudi-fi-logo-mini.svg";
+// a name centred on cx, with an optional logo in front of it: an image path, or "emoji:<glyph>"
+function nameLabel(cx,y,text,fill,logo){
+  const tw=labelW(text), w=logo?LOGO+LOGO_GAP+tw:tw, x0=cx-w/2;
+  const t=`font-family="var(--font-sans)" font-weight="500" font-size="12" fill="${fill}"`;
+  return `<g class="nm" data-x0="${x0.toFixed(1)}" data-x1="${(x0+w).toFixed(1)}">`+(logo
+    ? (logo.startsWith("emoji:") ? `<text x="${x0.toFixed(1)}" y="${y}" font-size="13">${logo.slice(6)}</text>` : `<image href="${logo}" x="${x0.toFixed(1)}" y="${y-LOGO/2-4.5}" width="${LOGO}" height="${LOGO}"/>`)+`<text x="${(x0+LOGO+LOGO_GAP).toFixed(1)}" y="${y}" ${t}>${text}</text>`
+    : `<text x="${cx}" y="${y}" text-anchor="middle" ${t}>${text}</text>`)+`</g>`;
+}
+function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=null,antennas=false,cloudHead=false,zombie=false,ours=false}={}){
   const c=CH[key], cy=CY;
   let mouth;
   if(mood==="smile") mouth=`<path d="M${cx-4} ${cy+5} q4 3.5 8 0" fill="none" stroke="var(--ink)" stroke-width="1.3" stroke-linecap="round"/>`;
@@ -39,7 +52,7 @@ function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=n
     <line x1="${cx}" y1="${cy+16}" x2="${cx}" y2="${cy+54}" ${Z}/><line x1="${cx}" y1="${cy+26}" x2="${cx-16}" y2="${cy+42}" ${Z}/><line x1="${cx}" y1="${cy+26}" x2="${cx+16}" y2="${cy+42}" ${Z}/><line x1="${cx}" y1="${cy+54}" x2="${cx-12}" y2="${cy+82}" ${Z}/><line x1="${cx}" y1="${cy+54}" x2="${cx+12}" y2="${cy+82}" ${Z}/>
     <circle cx="${cx}" cy="${cy}" r="16" fill="var(--surface)" stroke="currentColor" stroke-width="2.4"/><ellipse cx="${cx-5.5}" cy="${cy-2}" rx="3.2" ry="3.8" fill="var(--ink)"/><ellipse cx="${cx+5.5}" cy="${cy-2}" rx="3.2" ry="3.8" fill="var(--ink)"/><path d="M${cx-6} ${cy+7} l3 -3 l3 3 l3 -3 l3 3" fill="none" stroke="var(--ink)" stroke-width="1.4"/>
     ${key==="dave"?(phone==="iot"?"":`<rect x="${cx-28}" y="${cy+30}" width="12" height="20" rx="3.5" fill="var(--surface)" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/>`):""}
-    <text x="${cx}" y="${FLOOR+19}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${c.name}</text></g>`;
+    ${nameLabel(cx,FLOOR+19,c.name,"var(--ink-2)",ours?CF_LOGO:null)}</g>`;
   }
   const eyes = c.acc==="shades" ? "" :
     `<circle cx="${cx-5}" cy="${cy-2}" r="1.7" fill="var(--ink)"/><circle cx="${cx+5}" cy="${cy-2}" r="1.7" fill="var(--ink)"/>`;
@@ -62,7 +75,7 @@ function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=n
       ? `<circle cx="${cx}" cy="${cy}" r="16" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"/><g class="spinner"><circle cx="${cx}" cy="${cy}" r="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="26 74" stroke-linecap="round"/></g>`
       : `<circle cx="${cx}" cy="${cy}" r="16" fill="var(--surface)" stroke="currentColor" stroke-width="2.4"/>`}
     ${eyes}${mouth}${accStr}${bandEl}
-    <text x="${cx}" y="${FLOOR+19}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${c.name}</text>
+    ${nameLabel(cx,FLOOR+19,c.name,"var(--ink-2)",ours?CF_LOGO:null)}
   </g>`;
 }
 
@@ -112,7 +125,7 @@ function spinnerAt(cx,cy){
   return `<g class="spinner" transform="translate(${cx},${cy})"><circle r="8" fill="none" stroke="var(--line)" stroke-width="2.4"/><path d="M0 -8 A8 8 0 0 1 8 0" fill="none" stroke="var(--c-porter)" stroke-width="2.4" stroke-linecap="round"/></g>`;
 }
 
-function rayDesk(cx){
+function rayDesk(cx,ours=false){
   const cy=CY, C='stroke="currentColor"';
   const II='stroke="var(--ink-2)"', SURF='fill="var(--surface)"';
   const L=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${C} stroke-width="2.4" stroke-linecap="round"/>`;
@@ -136,7 +149,7 @@ function rayDesk(cx){
   s+=`<rect x="${cx-10}" y="${cy-5}" width="9" height="5.5" rx="1.5" fill="var(--ink)"/><rect x="${cx+1}" y="${cy-5}" width="9" height="5.5" rx="1.5" fill="var(--ink)"/><line x1="${cx-1}" y1="${cy-3}" x2="${cx+1}" y2="${cy-3}" stroke="var(--ink)" stroke-width="1.5"/>`;
   s+=`<path d="M${cx-4} ${cy+5} q4 3.5 8 0" fill="none" stroke="var(--ink)" stroke-width="1.3" stroke-linecap="round"/>`;
   s+=`</g>`;
-  s+=`<text x="${cx}" y="${FLOOR+19}" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink-2)">${CH.ray.name}</text>`;
+  s+=nameLabel(cx,FLOOR+19,CH.ray.name,"var(--ink-2)",ours?CF_LOGO:null);
   return s+`</g>`;
 }
 
@@ -145,17 +158,21 @@ const IN='stroke="var(--ink-2)"', LN='stroke="var(--line)"', SF='fill="var(--sur
 function floor(){ return `<line x1="0" y1="${FLOOR}" x2="${W}" y2="${FLOOR}" stroke="var(--line)" stroke-width="1.5"/>`; }
 function disco(x){ return `<line x1="${x}" y1="24" x2="${x}" y2="52" ${IN} stroke-width="1"/><circle cx="${x}" cy="62" r="11" ${SF} ${IN} stroke-width="1.2"/><line x1="${x-11}" y1="62" x2="${x+11}" y2="62" ${IN} stroke-width="0.8"/><line x1="${x}" y1="51" x2="${x}" y2="73" ${IN} stroke-width="0.8"/><line x1="${x-8}" y1="56" x2="${x+8}" y2="68" ${IN} stroke-width="0.6"/><line x1="${x-8}" y1="68" x2="${x+8}" y2="56" ${IN} stroke-width="0.6"/>`; }
 function inside(){ return `<rect x="0" y="0" width="${W}" height="${FLOOR}" ${S2}/>` + notes(396,40) + floor(); }
-function door(){ return `<rect x="282" y="86" width="76" height="${FLOOR-86}" ${S2} ${IN} stroke-width="1.2"/><rect x="276" y="70" width="88" height="16" ${SF} ${IN} stroke-width="1.5"/>`
-  + `<line x1="228" y1="172" x2="228" y2="${FLOOR}" ${IN} stroke-width="1.3"/>`
-  + `<rect x="191" y="148" width="74" height="24" rx="3" ${SF} ${IN} stroke-width="1.5"/>`
-  + `<text x="228" y="165" text-anchor="middle" font-family="var(--font-sfx)" font-size="13" fill="var(--ink)" letter-spacing="0.5">SSID_PARTY</text>`
+// top of every door (entrance, inside view, dancefloor); the signs sit right above it as lintels
+const DOOR_TOP=66;
+// extra width added to every door on its left side (right edge unchanged)
+const DOOR_EXTRA=12;
+function door(){ return `<rect x="${282-DOOR_EXTRA}" y="${DOOR_TOP}" width="${76+DOOR_EXTRA}" height="${FLOOR-DOOR_TOP}" ${S2} ${IN} stroke-width="1.2"/>`
+  // the SSID_PARTY sign is the entrance's lintel
+  + `<rect x="${276-DOOR_EXTRA}" y="${DOOR_TOP-18}" width="${88+DOOR_EXTRA}" height="18" rx="3" ${SF} ${IN} stroke-width="1.5"/>`
+  + `<text x="${320-DOOR_EXTRA/2}" y="${DOOR_TOP-4}" text-anchor="middle" font-family="var(--font-sfx)" font-size="13" fill="var(--ink)" letter-spacing="0.5">SSID_PARTY</text>`
   + notes(290,100)
   + floor(); }
 function doorInside(){ return `<rect x="0" y="0" width="${W}" height="${FLOOR}" ${S2}/>`
-  + `<rect x="70" y="86" width="66" height="${FLOOR-86}" ${SF}/>`
-  + `<rect x="60" y="84" width="10" height="${FLOOR-84}" ${SF} ${IN} stroke-width="1.3"/>`
-  + `<rect x="136" y="84" width="10" height="${FLOOR-84}" ${SF} ${IN} stroke-width="1.3"/>`
-  + `<rect x="54" y="72" width="98" height="14" ${SF} ${IN} stroke-width="1.3"/>`
+  + `<rect x="${70-DOOR_EXTRA}" y="${DOOR_TOP}" width="${66+DOOR_EXTRA}" height="${FLOOR-DOOR_TOP}" ${SF}/>`
+  + `<rect x="${60-DOOR_EXTRA}" y="${DOOR_TOP-2}" width="10" height="${FLOOR-DOOR_TOP+2}" ${SF} ${IN} stroke-width="1.3"/>`
+  + `<rect x="136" y="${DOOR_TOP-2}" width="10" height="${FLOOR-DOOR_TOP+2}" ${SF} ${IN} stroke-width="1.3"/>`
+  + `<rect x="${54-DOOR_EXTRA}" y="${DOOR_TOP-14}" width="${98+DOOR_EXTRA}" height="14" ${SF} ${IN} stroke-width="1.3"/>`
   + notes(396,40)
   + floor(); }
 function booth(x){ return `<rect x="${x-54}" y="96" width="108" height="${FLOOR-96}" ${SF} ${IN} stroke-width="1.5"/><rect x="${x-54}" y="96" width="108" height="20" ${S2}/><text x="${x}" y="110" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="11" fill="var(--ink-2)">ID CHECK</text><line x1="${x-54}" y1="206" x2="${x+54}" y2="206" ${IN} stroke-width="1.2"/>`; }
@@ -164,11 +181,13 @@ function kiosk(x){ return `<rect x="${x+28}" y="150" width="8" height="100" ${S2
 function notes(x,dy=0){ return `<g ${IN} stroke-width="1.4" transform="translate(0,${dy})"><circle cx="${x}" cy="96" r="3.4" fill="var(--ink-2)"/><line x1="${x+3.2}" y1="96" x2="${x+3.2}" y2="80"/><path d="M${x+3.2} 80 q7 2 7 9" ${NF}/><circle cx="${x+22}" cy="110" r="3" fill="var(--ink-2)"/><line x1="${x+24.8}" y1="110" x2="${x+24.8}" y2="96"/></g>`; }
 const DARK="#232327";
 function danceLights(x){ return `<circle cx="${x-16}" cy="118" r="3" fill="#f0586d"/><circle cx="${x+12}" cy="138" r="3" fill="#4d9bf0"/><circle cx="${x-4}" cy="168" r="3" fill="#f0c24d"/><circle cx="${x+16}" cy="108" r="2.6" fill="#6ed08a"/><circle cx="${x-18}" cy="150" r="2.4" fill="#b07df0"/>`; }
-function danceDoor(x){ return `<rect x="${x-28}" y="90" width="56" height="${FLOOR-90}" fill="${DARK}"/>`
-  + danceLights(x)
-  + `<rect x="${x-38}" y="86" width="10" height="${FLOOR-86}" ${SF} ${IN} stroke-width="1.3"/>`
-  + `<rect x="${x+28}" y="86" width="10" height="${FLOOR-86}" ${SF} ${IN} stroke-width="1.3"/>`
-  + `<rect x="${x-44}" y="72" width="88" height="14" ${SF} ${IN} stroke-width="1.3"/>`
+function danceDoor(x){ return `<rect x="${x-28-DOOR_EXTRA}" y="${DOOR_TOP}" width="${56+DOOR_EXTRA}" height="${FLOOR-DOOR_TOP}" fill="${DARK}"/>`
+  + danceLights(x-DOOR_EXTRA/2)
+  + `<rect x="${x-38-DOOR_EXTRA}" y="${DOOR_TOP}" width="10" height="${FLOOR-DOOR_TOP}" ${SF} ${IN} stroke-width="1.3"/>`
+  + `<rect x="${x+28}" y="${DOOR_TOP}" width="10" height="${FLOOR-DOOR_TOP}" ${SF} ${IN} stroke-width="1.3"/>`
+  // the INTERNET sign is the door's lintel
+  + `<rect x="${x-44-DOOR_EXTRA}" y="${DOOR_TOP-18}" width="${88+DOOR_EXTRA}" height="18" rx="3" ${SF} ${IN} stroke-width="1.3"/>`
+  + `<text x="${x-DOOR_EXTRA/2}" y="${DOOR_TOP-4}" text-anchor="middle" font-family="var(--font-sfx)" font-size="13" fill="var(--ink)" letter-spacing="1">INTERNET</text>`
   + notes(x-78); }
 function danceDoorHall(x){ return `<rect x="0" y="0" width="${W}" height="${FLOOR}" ${S2}/>` + danceDoor(x) + floor(); }
 function danceFloorScene(){ let t=""; for(let i=0;i<6;i++){ if(i%2===0) t+=`<rect x="${302+i*21}" y="230" width="21" height="26" fill="#2f2f34"/>`; }
@@ -202,7 +221,7 @@ function bg(type){
     case "dance-door": return danceDoorHall(380);
     case "dance-door-cloud": return danceDoorHall(380);
     case "dancefloor-cloud": return danceDoorHall(380);
-    case "dance-wall": return danceDoorHall(380)+`<rect x="326" y="92" width="7" height="164" rx="2" fill="var(--surface)" fill-opacity="0.6" stroke="var(--ink-2)" stroke-width="1.2" stroke-dasharray="4 3"/><g stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round"><line x1="322" y1="158" x2="316" y2="150"/><line x1="323" y1="174" x2="316" y2="174"/><line x1="322" y1="190" x2="316" y2="198"/></g>`;
+    case "dance-wall": return danceDoorHall(380)+`<g transform="translate(${-DOOR_EXTRA},0)"><rect x="326" y="${DOOR_TOP+6}" width="7" height="${FLOOR-DOOR_TOP-6}" rx="2" fill="var(--surface)" fill-opacity="0.6" stroke="var(--ink-2)" stroke-width="1.2" stroke-dasharray="4 3"/><g stroke="var(--ink)" stroke-width="1.6" stroke-linecap="round"><line x1="322" y1="158" x2="316" y2="150"/><line x1="323" y1="174" x2="316" y2="174"/><line x1="322" y1="190" x2="316" y2="198"/></g></g>`;
     case "dancefloor": return danceDoorHall(380);
     default: return floor();
   }

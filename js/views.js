@@ -5,10 +5,10 @@ function panelSVG(id,st){
   s+=bg(V(p.bg,st));
   const actors=V(p.a,st);
   for(const a of actors){
-    if(a.k==="ray"&&a.seated){ s+=rayDesk(a.x); continue; }
-    const band=a.band || (a.k==="dave"&&st.radius==="mab"&&rayCheckers(st)?"--band-green":null);
+    if(a.k==="ray"&&a.seated){ s+=rayDesk(a.x,OURS("ray",st)); continue; }
+    const band=a.band || (a.k==="dave"&&st.radius==="known"&&rayCheckers(st)?"--band-green":null);
     const phone=a.k==="dave" ? (a.nophone?"none":st.os) : null;
-    s+=figure(a.k,a.x,{band,mood:a.mood||"smile",headSpin:a.headSpin||false,phone,antennas:a.k==="phyre"&&st.integ==="fwBoth",cloudHead:a.k==="phyre"&&cloud(st),zombie:!!a.zombie});
+    s+=figure(a.k,a.x,{band,mood:a.mood||"smile",headSpin:a.headSpin||false,phone,antennas:a.k==="phyre"&&fwBo(st),cloudHead:(a.k==="phyre"&&cloud(st))||(a.k==="dippy"&&cloudDhcp(st)),zombie:!!a.zombie,ours:OURS(a.k,st)});
   }
   for(const a of actors){ const b=V(a.b,st); if(b) s+=bubble(a.x,b,{kind:a.kind||"speech",align:a.al||"center",top:a.top||false,color:CH[a.k].color}); }
   return s+`</svg>`;
@@ -67,6 +67,17 @@ function msgSVG(m,y){
   }
   return s+`<circle cx="${LX(fi)}" cy="${y}" r="3" fill="${col}"/>`;
 }
+// sequence-diagram lane headers only: the device's OS, the controller's and the firewall's brand (stand-ins: Cisco for Meraki, Juniper for Mist, CommScope for Ruckus)
+const VENDOR_LOGO={"cisco-wlc":"cisco",aruba:"aruba",meraki:"cisco",mist:"juniper-networks","ruckus-ap":"commscope","ruckus-smartzone":"commscope",fortigate:"fortinet"};
+const FW_LOGO={zscaler:"zscaler",netskope:"netskope",fortigate:"fortinet"};
+const OS_LOGO={ios:"img/os/apple.svg",android:"img/os/android.svg",iot:"emoji:🤖"};
+function laneLogo(k,s){
+  if(OURS(k,s)) return CF_LOGO;
+  if(k==="dave") return OS_LOGO[s.os];
+  if(k==="troller") return `img/vendors/${VENDOR_LOGO[s.vendor]}.svg`;
+  if(k==="phyre"&&(cloud(s)||fwL(s))) return `img/vendors/${FW_LOGO[s.fwvendor]}.svg`;
+  return null;
+}
 function renderSeq(){
   const wide=document.body.classList.contains("wide"), host=document.getElementById("sequence");
   const avail=wide&&host&&host.clientWidth?host.clientWidth-4:0;
@@ -98,7 +109,7 @@ function renderSeq(){
   const H=y+10;
   let lines=""; LANES.forEach((k,i)=>{ lines+=`<line x1="${LX(i)}" y1="0" x2="${LX(i)}" y2="${H}" stroke="var(--line)" stroke-width="1.2" stroke-dasharray="4 4"/>`; });
   let head=`<svg viewBox="0 0 ${SW} 40" width="${SW}" height="40" aria-hidden="true">`;
-  LANES.forEach((k,i)=>{ const x=LX(i); head+=`<rect x="${x-48}" y="5" width="96" height="30" rx="6" fill="var(--surface)" stroke="${CH[k].color}" stroke-width="2"/><text x="${x}" y="24" text-anchor="middle" font-family="var(--font-sans)" font-weight="500" font-size="12" fill="var(--ink)">${TECH[k]}</text>`; });
+  LANES.forEach((k,i)=>{ const x=LX(i); head+=`<rect x="${x-48}" y="5" width="96" height="30" rx="6" fill="var(--surface)" stroke="${CH[k].color}" stroke-width="2"/>`+nameLabel(x,24,TECH[k],"var(--ink)",laneLogo(k,STATE)); });
   head+=`</svg>`;
   document.getElementById("sequence").innerHTML=`<div class="seqhead"><div class="seqheadin" style="min-width:${SW}px">${head}</div></div><div class="seqscroll seqbody"><div class="seqinner" style="min-width:${SW}px">
     <svg viewBox="0 0 ${SW} ${H}" width="${SW}" height="${H}" role="img" aria-label="Sequence diagram">${lines}${body}</svg></div></div>`;
@@ -206,9 +217,11 @@ const CRIT=[
   {name:"device_os",key:"os"},
   {name:"controller_vendor",key:"vendor"},
   {name:"enforcement",key:"integ"},
+  {name:"meraki_login",key:"mlogin"},
   {name:"fw_vendor",key:"fwvendor"},
   {name:"transient",key:"transient"},
   {name:"mab",key:"radius"},
+  {name:"meraki_quarantine_policy",key:"qpolicy"},
   {name:"dhcp",key:"dhcp"},
   {name:"static_ip_bypass",key:"hack"},
   {name:"dhcp_snooping",key:"snooping"},
@@ -223,10 +236,10 @@ function derived(s){
   const p=path(s), last=p[p.length-1], L=N[last];
   const runsIn=p.includes("n15")?"browser":p.includes("n15n")?"mini-browser":"none";
   const risk=runsIn==="mini-browser"&&s.os==="ios"&&["mfa","sms","email"].includes(s.reg);
-  const fa=p.includes("n18")?"radius (controller login)":p.includes("n18L")?"radius (firewall login)":p.includes("n18api")?"controller-api + radius":p.includes("n18g")?"signed-return-url":p.includes("n18c")?`saml (${s.fwvendor==="zscaler"?"idp-initiated":"sp-initiated"})`:p.includes("n19m")||p.includes("n19m2")?"mab (portal bypassed)":"none";
-  const outcome=L.ok?(p.includes("nHack")&&p.includes("n19w")?"internet_bypass":"internet"):({n5r:"access_denied",nNoIp:"no_lease",n12d2:"https_blackhole",nMfaEnd:"mfa_lost",nPasskeyEnd:"passkey_unavailable",nIot:"no_captive_detection",nBlack:"blacklisted_silent_drop",nSnoopYes:"static_ip_dropped",nStale:"stale_captive_state"})[last]||"blocked";
+  const fa=p.includes("n18")?"radius (controller login)":p.includes("n18L")?"radius (firewall login)":p.includes("n18api")?"controller-api + radius":p.includes("n18g")?(s.vendor==="mist"?"signed-url (mist)":"grant-url (meraki)"):p.includes("n18c")?`saml (${s.fwvendor==="zscaler"?"idp-initiated":"sp-initiated"})`:p.includes("n19m")||p.includes("n19m2")?"mab (portal bypassed)":"none";
+  const outcome=L.ok?(p.includes("nHack")&&p.includes("n19w")?"internet_bypass":"internet"):({n5r:"access_denied",n5qx:"group_policy_missing",nMabQ:"quarantined_no_portal",nNoIp:"no_lease",n12d2:"https_blackhole",nMfaEnd:"mfa_lost",nPasskeyEnd:"passkey_unavailable",nIot:"no_captive_detection",nBlack:"blacklisted_silent_drop",nSnoopYes:"static_ip_dropped",nStale:"stale_captive_state"})[last]||"blocked";
   const dhcpHosting=["quarantine","whitelist","blacklist","zombies"].includes(s.dhcp)?"cloud":"on-prem";
-  return {dhcp_hosting:dhcpHosting,portal_runs_in:runsIn,app_switch_risk:risk?"yes":"no",final_auth:p.includes("n19w")?(p.includes("nHack")?"none (static IP bypass)":"dhcp-whitelist (portal bypassed)"):fa,outcome,steps:p};
+  return {dhcp_hosting:dhcpHosting,mab_at_association:cloud(s)?"none":rayCheckers(s)?"yes":"no",portal_runs_in:runsIn,app_switch_risk:risk?"yes":"no",final_auth:p.includes("n19w")?(p.includes("nHack")?"none (static IP bypass)":"dhcp-whitelist (portal bypassed)"):fa,outcome,steps:p};
 }
 function criteriaText(s){
   const lines=["# SSID_PARTY — flat criteria. One line per criterion: key: value","# Values are the words used in the diagrams. Lines starting with # are ignored.",""];

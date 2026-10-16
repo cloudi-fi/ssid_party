@@ -4,6 +4,7 @@
 // Enumerates every valid criteria combination (DFS over applicable options), walks every story and reports:
 //   loop / dangling (a story that neither ends nor reaches the dancefloor) / unreached nodes /
 //   "undefined" or NaN in any rendered view / speech-bubble overlaps or out-of-bounds in comic panels /
+//   name labels (with or without the Cloudi-Fi logo) overlapping or leaving the panel /
 //   a current option hidden from its title menu / box or chip collisions in the decision diagram.
 const fs=require("fs"), nodePath=require("path"), vm=require("vm");
 const file=process.argv[2]||"index.html";
@@ -34,6 +35,8 @@ for(const s of uniq.values()){
   T.set({...s}); rc(); rs(); rd();
   for(const k of ["comic","sequence","decision"]) if(/undefined|NaN/.test(els[k].innerHTML)){issues++;console.log("bad",k,JSON.stringify(s));}
   els.comic.innerHTML.split("<figure").slice(1).forEach((f,i)=>{const r=rects(f,13);for(let a=0;a<r.length;a++){if(r[a].x<4||r[a].x+r[a].w>436||r[a].y<4){issues++;console.log("oob",P(s)[i],JSON.stringify(s));}for(let b=a+1;b<r.length;b++)if(ov(r[a],r[b])){issues++;console.log("overlap",P(s)[i],JSON.stringify(s));}}});
+  els.comic.innerHTML.split("<figure").slice(1).forEach((f,i)=>{const nm=[...f.matchAll(/<g class="nm" data-x0="([\d.-]+)" data-x1="([\d.-]+)"/g)].map(m=>[+m[1],+m[2]]);
+    for(let a=0;a<nm.length;a++){ if(nm[a][0]<2||nm[a][1]>438){issues++;console.log("name oob",P(s)[i],JSON.stringify(s));} for(let b=a+1;b<nm.length;b++) if(nm[a][0]<nm[b][1]+4&&nm[b][0]<nm[a][1]+4){issues++;console.log("name overlap",P(s)[i],JSON.stringify(s));} }});
   for(const id of P(s)){ const ch=NN[id].choice; if(ch && T.opts(ch,s).length>1 && !T.opts(ch,s).some(o=>o.v===s[ch])){issues++;console.log("hidden current option",id,ch,JSON.stringify(s));} }
 }
 const unreached=Object.keys(NN).filter(x=>!visited.has(x)); if(unreached.length){issues++;console.log("unreached",unreached);}

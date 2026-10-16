@@ -3,6 +3,7 @@ let STATE={...DEF}, VIEW="comic";
 function readHash(){
   const h=new URLSearchParams(location.hash.slice(1));
   STATE={...DEF};
+  legacyHash(h);
   for(const k in CHOICES){ const v=h.get(k); if(v && CHOICES[k].opts.some(o=>o.v===v)) STATE[k]=v; }
   normalize(STATE);
   let v=h.get("view"); if(v==="branches") v="decision";

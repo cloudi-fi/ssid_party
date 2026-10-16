@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: url(#linear-gradient);
+      }
+
+      .cls-1, .cls-2 {
+        fill-rule: evenodd;
+      }
+
+      .cls-3 {
+        fill: #fde127;
+      }
+
+      .cls-4 {
+        opacity: .3;
+      }
+
+      .cls-2 {
+        fill: url(#linear-gradient-2);
+      }
+    </style>
+    <linearGradient id="linear-gradient" x1="-1521.77" y1="-105.16" x2="-1521.05" y2="-105.16" gradientTransform="translate(63105.41 -3134.78) scale(41.47 -29.91)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8a71d"/>
+      <stop offset=".65" stop-color="#fec21b"/>
+      <stop offset="1" stop-color="#ffcc1a"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="-1519.5" y1="-104.03" x2="-1518.79" y2="-104.03" gradientTransform="translate(59367.59 -3466.13) scale(39.07 -33.51)" xlink:href="#linear-gradient"/>
+  </defs>
+  <g id="Layer_11" data-name="Layer 11">
+    <g id="Group_825" data-name="Group 825">
+      <g id="Group_823" data-name="Group 823">
+        <path id="Path_333" data-name="Path 333" class="cls-1" d="m14.9,14.8c10.62-11.04,14.36-7.62,14.59-7.39-.32-.51-.67-1-1.05-1.47C22.89-.92,12.82-2,5.95,3.56,1.9,6.83-.31,11.86.04,17.06c.44,4.9,5.87,7.09,14.87-2.26Z"/>
+        <path id="Path_334" data-name="Path 334" class="cls-2" d="m17.52,17.52c-5.16,6.87-11.01,8.81-13.23,9.19-.04,0-.08.04-.08.08,0,.02,0,.04.02.05,5.99,6.5,16.11,6.91,22.61.93,5.13-4.72,6.61-12.21,3.66-18.53-.62-.97-3.68-4.1-12.98,8.28Z"/>
+      </g>
+      <g id="Group_824" data-name="Group 824" class="cls-4">
+        <path id="Path_335" data-name="Path 335" class="cls-3" d="m20.81,13.47c1.21,7.56-3.11,14.92-10.31,17.55,8.3,3.03,17.48-1.24,20.52-9.53,1.46-3.99,1.27-8.4-.53-12.25-.55-.85-2.94-3.3-9.68,4.24Z"/>
+        <path id="Path_336" data-name="Path 336" class="cls-3" d="m19.92,10.19c6.93-5.41,9.46-2.89,9.58-2.77C25.47,1.08,17.56-1.61,10.5.97c4.32,1.58,7.75,4.94,9.42,9.22Z"/>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -52,6 +52,15 @@ h1{font-family:var(--font-sfx);font-weight:400;font-size:46px;line-height:.95;le
 @media (prefers-reduced-motion: reduce){ .spinner{animation:none} }
 
 .views{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 18px}
+/* desktop: the view tabs sit to the right of the title; tablets and phones keep them below */
+@media (min-width:1025px){
+  .top{display:grid;grid-template-columns:auto 1fr;column-gap:24px;margin-bottom:22px}
+  .top h1{grid-area:1/1}
+  .top .tagline{grid-area:2/1;margin:0}
+  .top .views{grid-area:1/2/3/3;align-self:start;justify-content:flex-end;margin:6px 0 0;position:relative}
+  /* out of the tab row, so the tabs don't move when it appears; it sits on the tagline line */
+  .top .widebtn{position:absolute;right:0;top:calc(100% + 12px);margin:0}
+}
 .viewtab{font-family:var(--font-sans);font-size:14px;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
 .viewtab[aria-selected="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .linkbtn{font:inherit;color:var(--c-dave);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}

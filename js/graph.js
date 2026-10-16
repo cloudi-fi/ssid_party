@@ -7,10 +7,6 @@ const CHOICES={
     {v:"ios",label:"carries an iPhone",t:"iOS"},
     {v:"android",label:"carries an Android phone",t:"Android"},
     {v:"iot",label:"is an IP camera (no captive detection)",t:"IoT · no CPD"}]},
-  radius:{q:"What if Ray…",tq:"RADIUS policy",opts:[
-    {v:"open",label:"lets anyone in (base role)",t:"accept · base role",group:"Unknown MAC · no MAB match",when:s=>s.integ!=="mabOnly"},
-    {v:"reject",label:"rejects unknown MACs",t:"reject unknown MAC",group:"Unknown MAC · no MAB match"},
-    {v:"mab",label:"already knows Dave (MAB)",t:"MAB · MAC known",group:"Known MAC · MAB match, portal bypassed",fb:true}]},
   dhcp:{q:"What if Dee…",tq:"DHCP lease",opts:[
     {v:"ok",label:"has a free address",t:"free address",group:"On-prem DHCP · plain lease, no MAC triage"},
     {v:"conflict",label:"remembers Dave, but his old IP is taken",t:"previous IP taken",group:"On-prem DHCP · plain lease, no MAC triage"},
@@ -53,24 +49,46 @@ const CHOICES={
     {v:"ruckus-smartzone",label:"Ruckus SmartZone",t:"Ruckus SmartZone"},
     {v:"fortigate",label:"FortiGate",t:"FortiGate"}]},
   integ:{q:"What if Conn…",tq:"Enforcement point",opts:[
-    {v:"radius",label:"checks with RADIUS",t:"RADIUS · captive mode",group:"Controller + RADIUS · MAB at association, Access-Request at login"},
-    {v:"mabOnly",label:"runs a MAB-only SSID",t:"RADIUS · MAB-only SSID",group:"Controller + RADIUS · MAB at association, Access-Request at login"},
-    {v:"noRadius",label:"skips RADIUS",t:"no RADIUS · signed return URL",group:"Controller without RADIUS · signed return URL (Meraki grant URL, Mist)",when:s=>s.vendor==="meraki"||s.vendor==="mist"},
-    {v:"fwLocal",label:"hands over to the on-site FortiGate",t:"FortiGate · on-site firewall",group:"On-site firewall · FortiGate, external captive portal + RADIUS"},
-    {v:"fwBoth",label:"is the FortiGate itself",t:"FortiGate · controller + firewall",group:"On-site firewall · FortiGate, external captive portal + RADIUS",when:s=>s.vendor==="fortigate"},
+    {v:"controller",label:"doesn't check MACs at the door",t:"controller · no MAB",group:"Controller · captive portal (RADIUS at login, except Meraki grant URL and Mist signed URL)"},
+    {v:"controllerMab",label:"checks MACs with RADIUS at the door (MAB)",t:"controller · MAB",group:"Controller · captive portal (RADIUS at login, except Meraki grant URL and Mist signed URL)"},
+    {v:"mabOnly",label:"runs a MAB-only SSID",t:"controller · MAB-only SSID",group:"Controller · MAB only, no portal"},
+    {v:"fwLocal",label:"hands over to the on-site FortiGate",t:"FortiGate on site · no MAB",group:"On-site firewall · FortiGate, external captive portal + RADIUS"},
+    {v:"fwLocalMab",label:"hands over to the on-site FortiGate, which checks MACs (MAB)",t:"FortiGate on site · MAB",group:"On-site firewall · FortiGate, external captive portal + RADIUS"},
+    {v:"fwBoth",label:"is the FortiGate itself",t:"FortiGate controller + firewall · no MAB",group:"On-site firewall · FortiGate, external captive portal + RADIUS",when:s=>s.vendor==="fortigate"},
+    {v:"fwBothMab",label:"is the FortiGate itself and checks MACs (MAB)",t:"FortiGate controller + firewall · MAB",group:"On-site firewall · FortiGate, external captive portal + RADIUS",when:s=>s.vendor==="fortigate"},
     {v:"cloud",label:"lets a cloud firewall decide",t:"cloud firewall",group:"Cloud firewall · SAML, IP surrogate — vendor chosen at the dancefloor door"}]},
+  mlogin:{q:"What if Meraki…",tq:"Meraki hand-back",opts:[
+    {v:"grant",label:"authorizes Dave through its grant URL (click-through)",t:"grant URL",when:s=>s.vendor==="meraki"&&ctrl(s)},
+    {v:"radius",label:"logs Dave in through RADIUS",t:"RADIUS login",when:s=>s.vendor==="meraki"&&ctrl(s)}]},
+  radius:{q:"What if Ray…",tq:"MAB · Dave's MAC",opts:[
+    {v:"unknown",label:"doesn't know Dave's MAC",t:"MAB · MAC unknown",when:s=>rayCheckers(s)},
+    {v:"known",label:"already knows Dave (MAB)",t:"MAB · MAC known",when:s=>rayCheckers(s)}]},
+  qpolicy:{q:"What if Meraki…",tq:"Meraki group policy cloudifi-Quarantine",opts:[
+    {v:"defined",label:"has the cloudifi-Quarantine group policy",t:"defined",when:s=>merakiMab(s)&&s.radius==="unknown"},
+    {v:"missing",label:"has no cloudifi-Quarantine group policy",t:"missing",when:s=>merakiMab(s)&&s.radius==="unknown"}]},
   fwvendor:{q:"Firewall vendor",tq:"Firewall vendor",opts:[
     {v:"zscaler",label:"Zscaler",t:"Zscaler",when:s=>s.integ==="cloud",group:"Cloud · SAML IdP-initiated (Zscaler) / SP-initiated (Netskope), IP surrogate"},
     {v:"netskope",label:"Netskope",t:"Netskope",when:s=>s.integ==="cloud",group:"Cloud · SAML IdP-initiated (Zscaler) / SP-initiated (Netskope), IP surrogate"},
-    {v:"fortigate",label:"FortiGate",t:"FortiGate",when:s=>s.integ==="fwLocal"||s.integ==="fwBoth",group:"On site · external captive portal + RADIUS"}]},
+    {v:"fortigate",label:"FortiGate",t:"FortiGate",when:s=>fwL(s),group:"On site · external captive portal + RADIUS"}]},
   transient:{q:"What if Port Al…",tq:"Portal · transient profile",opts:[
     {when:s=>s.os!=="iot",v:"no",label:"shows the form right away",t:"classic"},
     {when:s=>s.os!=="iot",v:"yes",label:"hands out a transient pass first",t:"transient"}]}
 };
-const DEF={os:"ios",vendor:"cisco-wlc",integ:"radius",fwvendor:"zscaler",transient:"no",radius:"open",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"sso",smsexit:"type"};
+// links shared before MAB moved to the enforcement criterion: rewrite old hash values in place
+function legacyHash(h){
+  const r=h.get("radius"), i=h.get("integ");
+  if(i==="noRadius") h.set("integ","controller");
+  if(r==="open"||r==="reject"||r==="mab"){
+    h.set("radius",r==="mab"?"known":"unknown");
+    if(!i||i==="radius") h.set("integ","controllerMab"); else if(i==="fwLocal"||i==="fwBoth") h.set("integ",i+"Mab");
+  } else if(i==="radius") h.set("integ","controllerMab");
+}
+const DEF={os:"ios",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"sso",smsexit:"type"};
 const TITLES={
   os:{ios:"An iPhone rolls up to the club.",android:"An Android phone rolls up to the club.",iot:"An IP camera rolls up to the club."},
-  radius:{open:"Ray lets him through anyway.",reject:s=>s.integ==="mabOnly"?"Ray doesn't know him — out.":"Ray says no.",mab:"Ray already knows Dave."},
+  radius:{unknown:s=>merakiMab(s)?"Ray lets him through anyway.":s.integ==="mabOnly"?"Ray doesn't know him — out.":"Ray says no.",known:"Ray already knows Dave."},
+  qpolicy:{defined:"Conn shrugs and waves him in.",missing:"Conn turns him away."},
+  mlogin:{grant:"Port Al's word is enough.",radius:"One last double-check."},
   dhcp:{ok:"Dee hands him an address.",conflict:"Dee remembers him — new address.",exhausted:"Dee is out of addresses.",quarantine:"Dee, from the cloud, puts him in quarantine.",whitelist:"Dee, from the cloud, has him on the whitelist.",blacklist:"Dee, from the cloud, has him on the blacklist.",zombies:"Dee, from the cloud, is out of addresses — zombies."},
   hack:{no:"Dave keeps asking, forever.",yes:"Dave picks his own address."},
   visit:{first:"Dave checks the kiosk.",returning:"Dave doesn't bother checking."},
@@ -79,7 +97,7 @@ const TITLES={
   done:{no:"Dave taps Port Al's button.",yes:"Dave taps 'Done' instead."},
   reg:{sso:"Single sign-on with Ida Pee.",mfa:"Ida Pee wants a second factor.",passkey:"Ida Pee asks for a glance.",form:"Dave fills in the form.",sms:"A text message arrives.",email:"Credentials by email."},
   smsexit:{type:"Dave types the code.",tap:"Dave taps the notification."},
-  integ:{radius:"Conn checks with the list.",mabOnly:"Conn checks with the list — MAB-only SSID, no portal.",noRadius:"Conn skips the list.",fwLocal:"Conn steps aside — Phyre Wall, on site, checks with the list.",fwBoth:"Phyre Wall does it all — FortiGate is both controller and firewall.",cloud:"Conn waves everyone in — Phyre Wall checks from the cloud."},
+  integ:{controller:s=>usesRadius(s)?"Conn doesn't even ask Ray.":"Conn skips the list.",controllerMab:"Conn checks with the list.",mabOnly:"Conn checks with the list — MAB-only SSID, no portal.",fwLocal:"Conn steps aside — Phyre Wall, on site, doesn't even ask Ray.",fwLocalMab:"Conn steps aside — Phyre Wall, on site, checks with the list.",fwBothMab:"Phyre Wall does it all — and checks with the list.",fwBoth:"Phyre Wall does it all — and doesn't even ask Ray.",cloud:"Conn waves everyone in — Phyre Wall checks from the cloud."},
   fwvendor:{zscaler:"Phyre Wall is a Zscaler.",netskope:"Phyre Wall is a Netskope.",fortigate:"Phyre Wall is a FortiGate."},
   transient:{no:"Port Al shows the form right away.",yes:"Port Al hands out a visitor pass."},
   vendor:Object.fromEntries([["cisco-wlc","a Cisco WLC"],["aruba","an Aruba"],["meraki","a Meraki"],["mist","a Juniper Mist"],["ruckus-ap","a Ruckus AP"],["ruckus-smartzone","a Ruckus SmartZone"],["fortigate","a FortiGate"]].map(([v,n])=>[v,`Dave hands his MAC to ${n}.`]))
@@ -93,42 +111,63 @@ const C=(base,o)=>Object.assign({},base,o);
 
 const N={};
 N.n1={choice:"os",narr:"A new device rolls up to the club.",loc:"outside",bg:"door",tag:"802.11 · assoc",note:"Device associates to the SSID — on the air, but no IP and no access yet.",
-  a:s=>[{k:"dave",x:170,b:"Hi, can I join SSID_PARTY?",al:"left"},{k:greetK(s),x:340,b:"Welcome, it depends — what's your MAC?",al:"right"}],
+  a:s=>[{k:"dave",x:170,b:"Hi, can I join SSID_PARTY?",al:"left"},{k:greetK(s),x:340,b:"Welcome, what's your MAC?",al:"right"}],
   seq:s=>[{f:"dave",t:greetK(s),l:"Association Request (SSID_PARTY)"}],next:"n2"};
 N.n2={choice:"vendor",narr:"Dave hands over his MAC.",loc:"at the door",bg:"door",tag:"L2 · MAC",
-  note:s=>`The ${VNAME[s.vendor]} ${s.integ==="fwBoth"?"box":"controller"} identifies the device by its MAC address.${s.vendor==="meraki"||s.vendor==="mist"?" RADIUS is optional on this vendor.":" RADIUS is required on this vendor for the portal flow."}`,
+  note:s=>`The ${VNAME[s.vendor]} ${fwBo(s)?"box":"controller"} identifies the device by its MAC address.${cloud(s)?"":s.vendor==="mist"?" Mist hands sessions back with a signed URL: no RADIUS at login.":s.vendor==="meraki"?" Meraki hands sessions back through its grant URL or a RADIUS login.":" This vendor needs RADIUS at login; checking the MAC at association (MAB) is optional."}`,
   a:s=>[{k:"dave",x:170,b:"AA:BB:CC:11:22",al:"left"},{k:greetK(s),x:340,b:"OK, wait a sec.",al:"right"}],
   seq:s=>[{f:greetK(s),t:greetK(s),l:"learns MAC AA:BB:CC:11:22"}],next:"dInteg"};
-N.n3={choice:"integ",narr:"Conn checks with the list.",loc:"inside, at the door",bg:s=>s.integ==="fwLocal"?"door-inside-fw":"door-inside",tag:"RADIUS · Access-Request",
-  note:s=>s.integ==="fwLocal"?"The controller just provides the Wi-Fi and steps aside: the on-site firewall asks the RADIUS server whether this MAC may join.":s.integ==="fwBoth"?"The FortiGate is both the Wi-Fi controller and the firewall: it asks the RADIUS server whether this MAC may join.":s.integ==="mabOnly"?"MAB-only SSID: no captive portal at all, RADIUS alone decides who gets on.":"Controller asks the RADIUS server whether this MAC may join.",
+N.n3={choice:"integ",narr:"Conn checks with the list.",loc:"inside, at the door",bg:s=>fwLoc(s)?"door-inside-fw":"door-inside",tag:"RADIUS · Access-Request",
+  note:s=>fwLoc(s)?"The controller just provides the Wi-Fi and steps aside: the on-site firewall asks the RADIUS server whether this MAC may join.":fwBo(s)?"The FortiGate is both the Wi-Fi controller and the firewall: it asks the RADIUS server whether this MAC may join.":s.integ==="mabOnly"?"MAB-only SSID: no captive portal at all, RADIUS alone decides who gets on.":"Controller asks the RADIUS server whether this MAC may join.",
   a:s=>entranceActors(s,"Hey Ray, AA:BB:CC:11:22 asks if he can join.","Let me check..."),
   seq:s=>[{f:enfK(s),t:"ray",l:"Access-Request (User-Name = MAC)"}],next:"dRadius"};
-N.dRadius={dec:"RADIUS policy?",next:{k:"radius",map:{open:"n4",reject:"n4r",mab:"n4m"}}};
-N.n4={choice:"radius",narr:"Ray lets him through anyway.",loc:"inside, at the door",bg:s=>s.integ==="fwLocal"?"door-inside-fw":"door-inside",tag:"RADIUS · Access-Accept (base)",note:"The MAC isn't really known — RADIUS allows it anyway, but on a base role, so it stays walled off from the internet.",
-  a:s=>entranceActors(s,null,"Yep, let him in — base only."),
-  seq:s=>[{f:"ray",t:enfK(s),l:"Access-Accept (role = base)",r:1}],next:"n5"};
-N.n4r={choice:"radius",narr:"Ray says no.",loc:"inside, at the door",bg:s=>s.integ==="fwLocal"?"door-inside-fw":"door-inside",tag:"RADIUS · Access-Reject",
-  note:s=>s.integ==="mabOnly"?"Unknown MAC on a MAB-only SSID: Access-Reject, and nothing to fall back on.":s.vendor==="meraki"?"Unknown MAC: Access-Reject. Meraki specific: even in captive-portal mode, the device is thrown off the SSID.":"Unknown MAC: Access-Reject. Most controllers in captive-portal mode then fall back to the captive role.",
+N.dRadius={dec:"MAC known?",next:{dl:"MAC known?",cases:[
+  {when:s=>s.radius==="known",l:"known MAC · accept",set:{radius:"known"},to:"n4m"},
+  {when:s=>merakiMab(s),l:"unknown · Meraki: accept + quarantine",set:{radius:"unknown",vendor:"meraki",integ:"controllerMab"},to:"n4"},
+  {l:"unknown · reject",set:{radius:"unknown",vendor:"cisco-wlc"},to:"n4r"}]}};
+N.n4={choice:"radius",narr:"Ray lets him through anyway.",loc:"inside, at the door",bg:"door-inside",tag:"RADIUS · Access-Accept (cloudifi-Quarantine)",
+  note:"Meraki only: an unknown MAC gets an Access-Accept carrying the group policy name cloudifi-Quarantine, because a reject would throw the device off the SSID. Meraki then applies the group policy of that name.",
+  a:s=>entranceActors(s,null,"Don't know him. Quarantine pass, then."),
+  seq:s=>[{f:"ray",t:enfK(s),l:"Access-Accept (Filter-Id = cloudifi-Quarantine)",r:1}],next:"dQpol"};
+N.dQpol={dec:"Group policy defined?",next:{k:"qpolicy",map:{defined:"n5q",missing:"n5qx"}}};
+N.n5q={choice:"qpolicy",narr:"Conn shrugs and waves him in.",loc:"stepping in",bg:"threshold",tag:"Group policy cloudifi-Quarantine applied",
+  note:s=>s.integ==="mabOnly"?"Meraki applies the cloudifi-Quarantine group policy. On a MAB-only SSID there is no splash page to register on.":"Meraki applies the cloudifi-Quarantine group policy defined on its dashboard: Dave is admitted like any unregistered guest — an IP, then the splash page.",
+  a:s=>thresholdActors(s,s.integ==="mabOnly"?"Quarantine pass. Hall only, Dave.":"Quarantine pass? Hall only, Dave. See Dee Ashcipee.",{x:150}),
+  seq:s=>[{f:enfK(s),t:"dave",l:"Associated · group policy cloudifi-Quarantine",r:1}],next:"dMabQ"};
+N.n5qx={end:1,choice:"qpolicy",narr:"Conn turns him away.",loc:"outside",bg:"door",tag:"Group policy missing · the end",
+  note:"RADIUS asked for the cloudifi-Quarantine group policy, but it doesn't exist on this Meraki network: the device is refused at the door. The group policy has to be created on the dashboard.",
+  a:s=>thresholdActors(s,"Quarantine? Never heard of it. Not tonight, Dave.",{x:170,mood:"flat"}),
+  seq:s=>[{f:enfK(s),t:"dave",l:"group policy not found · access denied",r:1}]};
+N.dMabQ={dec:"MAB-only SSID?",next:{dl:"MAB-only SSID?",cases:[
+  {when:s=>s.integ==="mabOnly",l:"MAB-only · no portal",set:{integ:"mabOnly"},to:"nMabQ"},
+  {l:"captive portal",set:{integ:"controllerMab"},to:"dDhcp"}]}};
+N.nMabQ={end:1,narr:"In, but going nowhere.",loc:"in the hall",bg:"interior",tag:"MAB-only SSID · quarantine policy · the end",
+  note:"No splash page on a MAB-only SSID: an unknown device stays under the cloudifi-Quarantine policy until its MAC is registered. This is how IoT devices are usually onboarded on Meraki.",
+  a:[{k:"dave",x:210,b:"I'm in... but where's the desk?",kind:"think",al:"center",mood:"flat"}],
+  seq:[{f:"dave",t:"dave",l:"admitted · cloudifi-Quarantine · no portal"}]};
+N.n4r={choice:"radius",narr:"Ray says no.",loc:"inside, at the door",bg:s=>fwLoc(s)?"door-inside-fw":"door-inside",tag:"RADIUS · Access-Reject",
+  note:s=>s.integ==="mabOnly"?"Unknown MAC on a MAB-only SSID: Access-Reject, and nothing to fall back on.":"Unknown MAC: Access-Reject, as on every vendor except Meraki. Controllers in captive-portal mode then fall back to their captive role.",
   a:s=>entranceActors(s,null,"Never heard of him. No."),
   seq:s=>[{f:"ray",t:enfK(s),l:"Access-Reject",r:1}],next:"dReject"};
 N.dReject={dec:"On Access-Reject?",next:{dl:"On Access-Reject?",cases:[
-  {when:s=>s.integ==="mabOnly"||s.vendor==="meraki",l:"ejected (Meraki, MAB-only)",set:{vendor:"meraki"},to:"n5r"},
-  {l:"captive fallback",set:{vendor:"cisco-wlc"},to:"n5rf"}]}};
+  {when:s=>s.integ==="mabOnly",l:"ejected (MAB-only)",set:{integ:"mabOnly"},to:"n5r"},
+  {l:"captive fallback",set:{integ:"controllerMab"},to:"n5rf"}]}};
 N.n5rf={narr:s=>fwL(s)?"Phyre Wall shrugs and waves him in.":"Conn shrugs and waves him in.",loc:"stepping in",bg:"threshold",tag:"Access-Reject → captive fallback",
-  note:"The controller falls back to its default captive role: Dave gets an IP and the portal, exactly like an accepted unknown MAC. Only the RADIUS logs differ.",
+  note:"The controller falls back to its default captive role: Dave gets an IP and the portal, exactly as if it had never asked. Only the RADIUS logs differ.",
   a:s=>thresholdActors(s,"Ray Dius doesn't know you... hall only, Dave. See Dee Ashcipee.",{x:150}),
   seq:s=>[{f:enfK(s),t:"dave",l:"Associated · default captive role (fallback)",r:1}],next:"dDhcp"};
-N.n3n={choice:"integ",narr:"Conn skips the list.",loc:"inside, at the door",bg:"door-inside",tag:"Open SSID · no RADIUS",
-  note:s=>`No RADIUS on this ${VNAME[s.vendor]}: every device is admitted into the captive role. The portal will authorize Dave later through a signed return URL.`,
-  a:[{k:"dave",x:103},{k:"troller",x:225,b:"No list tonight. I guess it's a free party.",al:"center"}],
-  seq:[{f:"troller",t:"troller",l:"default captive role (no RADIUS)"}],next:"n5"};
-N.n4m={choice:"radius",narr:"Ray knows him.",loc:"inside, at the door",bg:s=>s.integ==="fwLocal"?"door-inside-fw":"door-inside",tag:"RADIUS · Access-Accept (MAB)",note:"MAC Authentication Bypass: the MAC is already registered, so RADIUS grants the full guest role right away.",
+N.n3n={choice:"integ",narr:s=>!usesRadius(s)?"Conn skips the list.":fwL(s)?"Phyre Wall doesn't even ask Ray.":"Conn doesn't even ask Ray.",loc:"inside, at the door",bg:s=>fwLoc(s)?"door-inside-fw":"door-inside",
+  tag:"No MAB at association",
+  note:s=>!usesRadius(s)?`No RADIUS on this ${VNAME[s.vendor]}: every device is admitted into the captive role. The portal will hand the session back through ${s.vendor==="mist"?"a signed authorization URL":"Meraki's grant URL"}.`:`Checking the MAC at association (MAB) is optional: here the ${fwL(s)?"firewall":"controller"} admits every device into its captive role without asking RADIUS. RADIUS only comes in at login, after the portal.`,
+  a:s=>usesRadius(s)?entranceActors(s,"Come in, Dave. No need to bother Ray.",null).map(x=>x.k==="ray"?{...x,b:"Nobody asks me...",kind:"think"}:x.k===enfK(s)?{...x,top:true}:x):[{k:"dave",x:103},{k:"troller",x:225,b:"No list tonight. I guess it's a free party.",al:"center"}],
+  seq:s=>[{f:enfK(s),t:enfK(s),l:usesRadius(s)?"no MAC authentication · default captive role":"default captive role (no RADIUS)"}],next:"n5"};
+N.n4m={choice:"radius",narr:"Ray knows him.",loc:"inside, at the door",bg:s=>fwLoc(s)?"door-inside-fw":"door-inside",tag:"RADIUS · Access-Accept (MAB)",note:"MAC Authentication Bypass: the MAC is already registered, so RADIUS grants the full guest role right away.",
   a:s=>entranceActors(s,null,"Dave! Known MAC — full access."),
   seq:s=>[{f:"ray",t:enfK(s),l:"Access-Accept (role = guest)",r:1}],next:"n5m"};
 N.n5={narr:s=>fwL(s)?"Phyre Wall waves him inside.":"Conn waves him inside.",loc:"stepping in",bg:"threshold",tag:"handoff",note:"The device is admitted into the walled garden — the club's hall.",
   a:s=>thresholdActors(s,"You're in! See Dee Ashcipee.",{x:150}),
   seq:s=>[{f:enfK(s),t:"dave",l:fwL(s)?"Allowed · captive policy applied":"Associated · captive role applied",r:1}],next:"dDhcp"};
-N.n5r={end:1,narr:"Not tonight, Dave.",loc:"outside",bg:"door",tag:"Access denied · the end",note:s=>s.integ==="mabOnly"?"MAB-only SSID: an unknown MAC is simply thrown out. Handy for IoT fleets, fatal for guests.":s.vendor==="meraki"?"Meraki throws the device off the SSID on Access-Reject: no IP, no portal, no internet.":fwL(s)?"The firewall refuses the device: no portal, no internet.":"The controller refuses the device: no IP, no portal, no internet.",
+N.n5r={end:1,narr:"Not tonight, Dave.",loc:"outside",bg:"door",tag:"Access denied · the end",note:"MAB-only SSID: an unknown MAC is simply thrown out. Handy for IoT fleets, fatal for guests.",
   a:s=>thresholdActors(s,"Sorry Dave, not tonight.",{x:170,mood:"flat"}),
   seq:s=>[{f:enfK(s),t:"dave",l:fwL(s)?"Access denied by firewall":"Deauthentication / access denied",r:1}]};
 N.n5m={narr:s=>fwL(s)?"Phyre Wall rolls out the red carpet.":"Conn rolls out the red carpet.",loc:"stepping in",bg:"threshold",tag:"handoff (role = guest)",note:"Same entrance, but Dave already has the full role.",
@@ -144,7 +183,7 @@ N.n6w={choice:"dhcp",narr:"Dee hands him a VIP ticket.",loc:"cloakroom",bg:"cloa
   seq:[{f:"dave",t:"dippy",l:"DHCP DISCOVER (chaddr = MAC)"},{f:"dippy",t:"dippy",l:"MAC triage → whitelist"},{f:"dippy",t:"dave",l:"OFFER 10.0.20.47 (whitelist pool)",r:1}],next:"dWl"};
 N.dWl={dec:"Whitelist range honoured?",next:{dl:"Whitelist range honoured?",cases:[
   {when:s=>cloud(s)&&s.fwvendor==="zscaler",l:"Zscaler policy on the range",set:{integ:"cloud",fwvendor:"zscaler"},to:"n19w"},
-  {l:"nobody (plain controller / firewall)",set:{integ:"radius"},to:"nNoVip"}]}};
+  {l:"nobody (plain controller / firewall)",set:{integ:"controller"},to:"nNoVip"}]}};
 N.nNoVip={narr:"Nobody honours the VIP ticket.",loc:"in the hall",bg:"interior",
   tag:"Whitelist range · not enforced",note:"Only a Zscaler integration maps the cloud DHCP pools to firewall policies. With any other controller or firewall, the whitelist range is just an address: the device is still held in the captive state and runs its captive detection as usual.",
   a:s=>[{k:"dave",x:150,b:"Dee Ashcipee gave me a VIP ticket!",al:"left"},{k:(cloud(s)||fwL(s))?"phyre":"troller",x:320,b:"Never heard of it. Same rules as everyone, Dave.",al:"right"}],
@@ -174,7 +213,7 @@ N.nSnoopYes={end:1,choice:"snooping",narr:"The unlearned address is dropped.",lo
 N.dHackWl={dec:"Whitelist range honoured?",next:{dl:"Whitelist range honoured?",cases:[
   {when:s=>cloud(s)&&s.fwvendor==="zscaler",l:"Zscaler policy on the range",set:{integ:"cloud",fwvendor:"zscaler"},to:"n19w"},
   {when:s=>s.os==="iot",l:"IoT · no captive detection",set:{os:"iot"},to:"nIot"},
-  {l:"nobody · captive detection runs",set:{integ:"radius"},to:"n12n"}]}};
+  {l:"nobody · captive detection runs",set:{integ:"controller"},to:"n12n"}]}};
 N.n6z={choice:"dhcp",narr:"The quarantine is full of zombies.",loc:"cloakroom",bg:"cloakroom-z",tag:"Cloud DHCP · quarantine pool exhausted",
   note:"Quarantine leases are renewed forever. Devices that never finish the journey — IoT, abandoned phones — pile up and eat the pool: no OFFER left for Dave.",
   a:[{k:"dave",x:110,b:"Hi Dee, I'm AA:BB:CC:11:22 — got an IP for me?",al:"left"},{k:"dippy",x:275,b:"Sorry Dave, no tickets left. Look at them.",al:"right",mood:"flat"}],
@@ -184,7 +223,7 @@ N.n19w={ok:1,narr:"Straight to the dancefloor.",loc:"the dancefloor",bg:s=>cloud
   a:s=>[{k:(cloud(s)||fwL(s))?"phyre":"troller",x:270,b:"Whitelist? Go ahead, Dave!",al:"left"},{k:"dave",x:380,b:"That was quick!",al:"right",band:"--band-green"}],
   seq:s=>[{f:(cloud(s)||fwL(s))?"phyre":"troller",t:"dave",l:"whitelisted range · Internet open",r:1}]};
 N.dIot={dec:"Captive detection?",next:{dl:"Captive detection?",cases:[
-  {when:s=>s.os==="iot"&&rayCheckers(s)&&s.radius==="mab",l:"IoT · known MAC (MAB)",set:{os:"iot",radius:"mab"},to:"n19m"},
+  {when:s=>s.os==="iot"&&rayCheckers(s)&&s.radius==="known",l:"IoT · known MAC (MAB)",set:{os:"iot",radius:"known"},to:"n19m"},
   {when:s=>s.os==="iot",l:"IoT · none",set:{os:"iot"},to:"nIot"},
   {l:"phone / laptop",set:{os:"ios"},to:"d114"}]}};
 N.nIot={end:1,narr:"Dave Ice never asks the way.",loc:"in the hall",bg:"interior",tag:"No captive detection · stuck in quarantine",
@@ -211,8 +250,8 @@ N.n7n={choice:"o114",narr:"No note this time.",loc:"cloakroom",bg:"cloakroom",ta
   a:[{k:"dave",x:130},{k:"dippy",x:320,b:"There you go. Enjoy!",al:"right"}],
   seq:[{f:"dave",t:"dippy",l:"DHCP REQUEST"},{f:"dippy",t:"dave",l:"ACK (no option 114)",r:1}],next:"dRole2"};
 const roleCases=(guest,base)=>({dl:"Role?",cases:[
-  {when:s=>rayCheckers(s)&&s.radius==="mab",l:"guest (MAB)",set:{radius:"mab"},to:guest},
-  {l:"base role",set:{radius:"open"},to:base}]});
+  {when:s=>rayCheckers(s)&&s.radius==="known",l:"guest (MAB)",set:{radius:"known"},to:guest},
+  {l:"captive role",set:{radius:"unknown"},to:base}]});
 N.dRole1={dec:"Role?",next:roleCases("n8m","dVisit")};
 N.dRole2={dec:"Role?",next:roleCases("n19m2","n12n")};
 N.dVisit={dec:"Returning iPhone?",next:{k:"visit",map:{first:"n8",returning:"nStale"}}};
@@ -358,18 +397,18 @@ N.n16ne2=C(N.n16e2,{tag:"Portal · login (credentials)",note:"On Android, switch
   a:[{k:"dave",x:130,b:"Back from my inbox — still connected!",al:"left"},{k:"porter",x:320,b:"Welcome in!",al:"right"}]});
 
 N.n17={narr:"Verified — here's the band.",loc:"reception",bg:"reception",tag:"Portal · auth success",
-  note:s=>fwL(s)?"The portal validates the registration and hands Dave credentials to present to the on-site firewall.":s.integ==="noRadius"?"The portal validates the registration and sends Dave back to the controller with a signed return URL — no RADIUS involved.":s.vendor==="ruckus-smartzone"?"The portal validates the registration and calls the controller's northbound API to authorize the session.":cloud(s)?`Acting as ${FWN(s)}'s identity provider, the portal sends Dave back with a SAML assertion for Phyre Wall (${zs(s)?"IdP-initiated":"SP-initiated"}).`:sso(s)?"The portal validates the assertion and hands Dave credentials to present to the controller.":"The portal validates the registration and hands Dave credentials to present to the controller.",
-  a:s=>[{k:"dave",x:130,b:({sso:"Ida Pee vouched. In now?",mfa:"Ida Pee vouched. In now?",passkey:"Ida Pee vouched. In now?",form:"All filled in. In now?",sms:"Code accepted. In now?",email:"Logged in. In now?"})[s.reg],al:"left",band:"--band-green"},{k:"porter",x:320,b:s=>s.integ==="noRadius"?"Band's yours — and a stamp. Show Conn Troller.":s.vendor==="ruckus-smartzone"&&s.integ==="radius"?"Band's yours. I'll call Conn Troller myself.":ctrlLike(s)?"Band's yours. See Conn Troller.":"Band's yours. Show Phyre Wall.",al:"right"}],
-  seq:s=>[{f:"dave",t:"porter",l:sso(s)?"POST assertion":"registration complete"},s.integ==="noRadius"?{f:"porter",t:"dave",l:"302 → controller signed return URL",r:1}:s.vendor==="ruckus-smartzone"&&s.integ==="radius"?{f:"porter",t:"troller",l:"API call (NBI): authorize session"}:ctrlLike(s)?{f:"porter",t:"dave",l:"credentials + redirect to controller login",r:1}:fwL(s)?{f:"porter",t:"dave",l:"credentials + redirect to firewall login",r:1}:{f:"porter",t:"dave",l:zs(s)?"SAML assertion (IdP-initiated)":"SAML response (SP-initiated)",r:1}],next:"dEnf5"};
-N.n18g={narr:"A stamp instead of a list.",loc:"in the hall",bg:"interior",tag:"Controller · signed return URL (grant URL)",
-  note:s=>s.vendor==="meraki"?"Meraki grant URL: the portal redirects Dave to the controller's base_grant_url; the controller authorizes the session on the spot, no RADIUS.":"Mist: the portal redirects Dave to Mist's signed authorization URL; the controller authorizes the session on the spot, no RADIUS.",
-  a:[{k:"dave",x:130,b:"Port Al stamped my hand.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Stamp's good. Go ahead!",al:"right"}],
-  seq:[{f:"dave",t:"troller",l:"GET signed return URL (token)"},{f:"troller",t:"troller",l:"session authorized · no RADIUS"}],next:"n19"};
+  note:s=>fwL(s)?"The portal validates the registration and hands Dave credentials to present to the on-site firewall.":urlHandback(s)?(s.vendor==="mist"?"The portal validates the registration and sends Dave back to Mist with a signed authorization URL — no RADIUS involved.":"The portal validates the registration and sends Dave back to Meraki's grant URL — no RADIUS involved."):cloud(s)?`Acting as ${FWN(s)}'s identity provider, the portal sends Dave back with a SAML assertion for Phyre Wall (${zs(s)?"IdP-initiated":"SP-initiated"}).`:s.vendor==="ruckus-smartzone"?"The portal validates the registration and calls the controller's northbound API to authorize the session.":sso(s)?"The portal validates the assertion and hands Dave credentials to present to the controller.":"The portal validates the registration and hands Dave credentials to present to the controller.",
+  a:s=>[{k:"dave",x:130,b:({sso:"Ida Pee vouched. In now?",mfa:"Ida Pee vouched. In now?",passkey:"Ida Pee vouched. In now?",form:"All filled in. In now?",sms:"Code accepted. In now?",email:"Logged in. In now?"})[s.reg],al:"left",band:"--band-green"},{k:"porter",x:320,b:s=>urlHandback(s)?(s.vendor==="mist"?"Band's yours — and a stamp. Show Conn Troller.":"Band's yours. Tell Conn I said so."):s.vendor==="ruckus-smartzone"&&ctrlLike(s)?"Band's yours. I'll call Conn Troller myself.":ctrlLike(s)?"Band's yours. See Conn Troller.":"Band's yours. Show Phyre Wall.",al:"right"}],
+  seq:s=>[{f:"dave",t:"porter",l:sso(s)?"POST assertion":"registration complete"},urlHandback(s)?{f:"porter",t:"dave",l:s.vendor==="mist"?"302 → Mist signed authorization URL":"302 → Meraki grant URL",r:1}:s.vendor==="ruckus-smartzone"&&ctrlLike(s)?{f:"porter",t:"troller",l:"API call (NBI): authorize session"}:ctrlLike(s)?{f:"porter",t:"dave",l:"credentials + redirect to controller login",r:1}:fwL(s)?{f:"porter",t:"dave",l:"credentials + redirect to firewall login",r:1}:{f:"porter",t:"dave",l:zs(s)?"SAML assertion (IdP-initiated)":"SAML response (SP-initiated)",r:1}],next:"dEnf5"};
+N.n18g={choice:"mlogin",narr:s=>s.vendor==="mist"?"A stamp instead of a list.":"Port Al's word is enough.",loc:"in the hall",bg:"interior",tag:"Controller · grant URL / signed URL",
+  note:s=>s.vendor==="mist"?"Mist: the portal redirects Dave to Mist's authorization URL with a signed token; Mist checks the signature and authorizes the session on the spot, no RADIUS.":"Meraki grant URL: the portal redirects Dave to Meraki's base_grant_url with a session duration; Meraki authorizes the session on the spot. No RADIUS, and nothing is signed.",
+  a:s=>s.vendor==="mist"?[{k:"dave",x:130,b:"Port Al stamped my hand.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Stamp's good. Go ahead!",al:"right"}]:[{k:"dave",x:130,b:"Port Al says I'm good.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Good enough for me. Go ahead!",al:"right"}],
+  seq:s=>[{f:"dave",t:"troller",l:s.vendor==="mist"?"GET authorization URL (signed token)":"GET grant URL (duration, continue_url)"},{f:"troller",t:"troller",l:"session authorized · no RADIUS"}],next:"n19"};
 N.n18api={narr:"Port Al phones ahead.",loc:"in the hall",bg:"interior",tag:"Controller API (NBI) → RADIUS Access-Request",
   note:"The portal calls the controller's northbound API, which triggers a new Access-Request to RADIUS for Dave's session.",
   a:[{k:"dave",x:78,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Port Al just called. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
   seq:[{f:"troller",t:"ray",l:"Access-Request (session from API)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
-N.n18={narr:"One last double-check.",loc:"in the hall",bg:"interior",tag:"RADIUS · Access-Request (role = guest)",note:"The controller re-authenticates Dave with the portal-issued credentials; RADIUS returns the guest role.",
+N.n18={choice:"mlogin",narr:"One last double-check.",loc:"in the hall",bg:"interior",tag:"RADIUS · Access-Request (role = guest)",note:"The controller re-authenticates Dave with the portal-issued credentials; RADIUS returns the guest role.",
   a:[{k:"dave",x:90,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Nice band. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
   seq:[{f:"dave",t:"troller",l:"POST controller login (credentials)"},{f:"troller",t:"ray",l:"Access-Request (credentials)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
 N.n19={ok:1,narr:"At last, the dancefloor.",loc:"the dancefloor",bg:"dancefloor",tag:"role = guest → Internet",note:"New role applied; traffic flows. Dave is finally online.",
@@ -386,10 +425,10 @@ const cloud=s=>s.integ==="cloud";
 const trans=s=>cloud(s)&&s.transient==="yes";
 const zs=s=>s.fwvendor==="zscaler";
 const FWN=s=>zs(s)?"Zscaler":"Netskope";
-N.dInteg={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
-  {when:s=>rayCheckers(s),l:"RADIUS checks the MAC",set:{integ:"radius"},to:"n3"},
-  {when:s=>s.integ==="noRadius",l:"no RADIUS",set:{integ:"noRadius"},to:"n3n"},
-  {l:"cloud firewall",set:{integ:"cloud"},to:"n3c"}]}};
+N.dInteg={dec:"MAC checked at the door?",next:{dl:"MAC checked at the door?",cases:[
+  {when:s=>cloud(s),l:"cloud firewall",set:{integ:"cloud"},to:"n3c"},
+  {when:s=>rayCheckers(s),l:"MAB: RADIUS checks the MAC",set:{integ:"controllerMab"},to:"n3"},
+  {l:"no MAB",set:{integ:"controller"},to:"n3n"}]}};
 const n3cloud=note=>({choice:"integ",narr:"Conn waves everyone in.",loc:"inside, at the door",bg:"door-inside",tag:"Open SSID · tunnel to cloud firewall",note,
   a:[{k:"dave",x:103},{k:"troller",x:225,b:"No list tonight — Phyre Wall checks you from the cloud.",al:"center"}],
   seq:[{f:"troller",t:"phyre",l:"GRE / IPsec tunnel (all guest traffic)"}],next:"n3f"});
@@ -400,7 +439,7 @@ N.n3f={choice:"fwvendor",narr:"Meanwhile, at the dancefloor door.",loc:"danceflo
   seq:s=>[{f:"phyre",t:"phyre",l:cloud(s)?`${FWN(s)} · unauthenticated IPs stay in the walled garden`:"FortiGate · captive policy on the guest VLAN"}],next:"n5"};
 N.n3c=n3cloud(s=>`No RADIUS here: the controller admits every device and tunnels its traffic to ${FWN(s)}, which checks everyone at the dancefloor door.`);
 N.dEnf1={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
-  {when:s=>ctrlLike(s)||fwL(s),l:"controller / on-site firewall",set:{integ:"radius"},to:"n9"},
+  {when:s=>ctrlLike(s)||fwL(s),l:"controller / on-site firewall",set:{integ:"controller"},to:"n9"},
   {when:s=>trans(s),l:"cloud · transient",set:{integ:"cloud",transient:"yes"},to:"n9t"},
   {l:"cloud · classic",set:{integ:"cloud",transient:"no"},to:"n15n"}]}};
 N.n9t={choice:"transient",narr:"Port Al hands over a visitor pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
@@ -412,7 +451,7 @@ N.n9t2={narr:"Dave shows his visitor pass.",loc:"dancefloor door",bg:"dance-door
   a:[{k:"dave",x:170,b:"Port Al gave me a visitor pass.",al:"left"},{k:"phyre",x:315,b:"Visitor pass — fine. Your phone can check in.",al:"right"}],
   seq:[{f:"dave",t:"phyre",l:"POST SAML assertion (transient)"},{f:"phyre",t:"phyre",l:"IP surrogate → transient profile"}],next:"dOs1"};
 N.dEnf2={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
-  {when:s=>ctrlLike(s),l:"controller",set:{integ:"radius"},to:"n13"},
+  {when:s=>ctrlLike(s),l:"controller",set:{integ:"controller"},to:"n13"},
   {when:s=>fwL(s),l:"local firewall",set:{integ:"fwLocal"},to:"n13L"},
   {l:"cloud firewall",set:{integ:"cloud"},to:"n13f"}]}};
 N.n13f={narr:"Plot twist — a different bouncer.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · transient profile",
@@ -424,7 +463,7 @@ N.n14f={narr:"Back to the desk — for real.",loc:"dancefloor door",bg:"dance-do
   a:[{k:"dave",x:170,b:"Just heading to 3wi.fi...",al:"left"},{k:"phyre",x:315,b:"Get a real pass from Port Al first.",al:"right"}],
   seq:s=>[{f:"phyre",t:"dave",l:zs(s)?"302 → portal URL (IdP-initiated SAML)":"302 → portal (SAML AuthnRequest)",r:1}],next:"n15"};
 N.dEnf3={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
-  {when:s=>ctrlLike(s),l:"controller",set:{integ:"radius"},to:"n13n"},
+  {when:s=>ctrlLike(s),l:"controller",set:{integ:"controller"},to:"n13n"},
   {when:s=>fwL(s),l:"local firewall",set:{integ:"fwLocal"},to:"n13pL"},
   {l:"cloud firewall",set:{integ:"cloud"},to:"n13p"}]}};
 N.n13p={narr:"Caught red-handed.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · intercepts probe",
@@ -453,11 +492,11 @@ N.n11p={narr:"The app closes itself.",loc:"reception",bg:"reception",tag:"Probe 
   a:[{k:"dave",x:210,b:"...wait, where did the portal go?",al:"center",nophone:true},{k:"porter",x:330}],
   seq:[{f:"dave",t:"dave",l:"sign-in app closes automatically"}],next:"n12a"};
 N.dEnf5={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
-  {when:s=>s.integ==="noRadius",l:"signed return URL",set:{integ:"noRadius",vendor:"meraki"},to:"n18g"},
-  {when:s=>s.integ==="radius"&&s.vendor==="ruckus-smartzone",l:"controller API → RADIUS",set:{integ:"radius",vendor:"ruckus-smartzone"},to:"n18api"},
-  {when:s=>ctrlLike(s),l:"controller login → RADIUS",set:{integ:"radius",vendor:"cisco-wlc"},to:"n18"},
   {when:s=>fwL(s),l:"local firewall → RADIUS",set:{integ:"fwLocal"},to:"n18L"},
-  {l:"cloud firewall",set:{integ:"cloud"},to:"n18c"}]}};
+  {when:s=>cloud(s),l:"cloud firewall",set:{integ:"cloud"},to:"n18c"},
+  {when:s=>urlHandback(s),l:"grant URL (Meraki) / signed URL (Mist)",set:{integ:"controller",vendor:"meraki",mlogin:"grant"},to:"n18g"},
+  {when:s=>s.vendor==="ruckus-smartzone",l:"controller API → RADIUS",set:{integ:"controller",vendor:"ruckus-smartzone"},to:"n18api"},
+  {l:"controller login → RADIUS",set:{integ:"controller",vendor:"cisco-wlc"},to:"n18"}]}};
 N.n18c={narr:"Phyre Wall updates his list.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · IP surrogate → user",
   note:s=>trans(s)?"Dave's private IP moves from the transient profile to his authorized user — tied to the IP, not a cookie.":"Dave's private IP moves from 'no-auth' to his authorized user. It's tied to the IP, not a cookie, so the real browser works too once the mini-browser closes.",
   a:[{k:"dave",x:170,b:"Hey Phyre — Port Al vouched for me.",al:"left",band:"--band-green"},{k:"phyre",x:315,b:"Your IP's on my list now.",al:"right"}],
@@ -491,14 +530,28 @@ N.n19L={ok:1,narr:"At last, the dancefloor.",loc:"the dancefloor",bg:"dancefloor
   a:[{k:"phyre",x:270,b:"Go ahead, Dave!",al:"left"},{k:"dave",x:380,b:"Finally — internet!",al:"right",band:"--band-green"}],
   seq:[{f:"phyre",t:"dave",l:"guest policy · Internet open",r:1}]};
 
-const fwL=s=>s.integ==="fwLocal"||s.integ==="fwBoth";
-const greetK=s=>s.integ==="fwBoth"?"phyre":"troller";
-const ctrlLike=s=>s.integ==="radius"||s.integ==="mabOnly"||s.integ==="noRadius";
+const fwLoc=s=>s.integ==="fwLocal"||s.integ==="fwLocalMab";
+const fwBo=s=>s.integ==="fwBoth"||s.integ==="fwBothMab";
+const fwL=s=>fwLoc(s)||fwBo(s);
+const greetK=s=>fwBo(s)?"phyre":"troller";
+// the controller runs the captive portal (with or without MAB at the door)
+const ctrl=s=>s.integ==="controller"||s.integ==="controllerMab";
+const ctrlLike=s=>ctrl(s)||s.integ==="mabOnly";
+// the controller itself hands the session back through a URL, without RADIUS at login
+const urlHandback=s=>ctrl(s)&&(s.vendor==="mist"||(s.vendor==="meraki"&&s.mlogin==="grant"));
+// RADIUS takes part in the journey (at the door and/or at login)
+const usesRadius=s=>fwL(s)||(ctrlLike(s)&&!urlHandback(s))||rayCheckers(s);
+// the Meraki itself sends the MAB request (not an on-site firewall)
+const merakiMab=s=>s.vendor==="meraki"&&(s.integ==="controllerMab"||s.integ==="mabOnly");
 const VNAME={"cisco-wlc":"Cisco WLC",aruba:"Aruba",meraki:"Meraki",mist:"Mist","ruckus-ap":"Ruckus AP","ruckus-smartzone":"Ruckus SmartZone",fortigate:"FortiGate"};
 const enfK=s=>fwL(s)?"phyre":"troller";
-const rayCheckers=s=>["radius","mabOnly","fwLocal","fwBoth"].includes(s.integ);
+const cloudDhcp=s=>["quarantine","whitelist","blacklist","zombies"].includes(s.dhcp);
+// Cloudi-Fi's own services: they get the Cloudi-Fi logo before their name (Dee only when the DHCP is Cloudi-Fi's)
+const OURS=(k,s)=>k==="porter"||k==="chippy"||k==="ray"||(k==="dippy"&&cloudDhcp(s));
+// MAB at association: the enforcement point asks RADIUS about the MAC at the door
+const rayCheckers=s=>["controllerMab","mabOnly","fwLocalMab","fwBothMab"].includes(s.integ);
 function entranceActors(s,enfBubble,rayBubble){
-  if(s.integ==="fwBoth") return [{k:"dave",x:103},{k:"phyre",x:225,...(enfBubble?{b:enfBubble,al:"center"}:{})},{k:"ray",x:355,b:rayBubble,al:"right",seated:true}];
+  if(fwBo(s)) return [{k:"dave",x:103},{k:"phyre",x:225,...(enfBubble?{b:enfBubble,al:"center"}:{})},{k:"ray",x:355,b:rayBubble,al:"right",seated:true}];
   if(!fwL(s)) return [{k:"dave",x:103},{k:"troller",x:225,...(enfBubble?{b:enfBubble,al:"center"}:{})},{k:"ray",x:355,b:rayBubble,al:"right",seated:true}];
   return [{k:"troller",x:42,mood:"flat"},{k:"dave",x:149},{k:"phyre",x:236,...(enfBubble?{b:enfBubble,al:"center"}:{})},{k:"ray",x:370,b:rayBubble,al:"right",seated:true}];
 }
