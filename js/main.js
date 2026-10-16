@@ -6,7 +6,7 @@ function readHash(){
   legacyHash(h);
   for(const k in CHOICES){ const v=h.get(k); if(v && CHOICES[k].opts.some(o=>o.v===v)) STATE[k]=v; }
   normalize(STATE);
-  let v=h.get("view"); if(v==="branches") v="decision";
+  let v=h.get("view"); if(v==="flow"||v==="branches") v="decision"; // the Flow tab is the decision view; "decision" and "branches" are older names
   VIEW=["comic","sequence","decision","criteria"].includes(v)?v:"comic";
   // view toggles, kept only in the views that show their button
   document.body.classList.toggle("wide",h.get("fullwidth")==="1"&&(VIEW==="sequence"||VIEW==="decision"));
@@ -14,7 +14,7 @@ function readHash(){
 }
 function writeHash(){
   const h=new URLSearchParams();
-  if(VIEW!=="comic") h.set("view",VIEW);
+  if(VIEW!=="comic") h.set("view",VIEW==="decision"?"flow":VIEW);
   if(document.body.classList.contains("wide")&&(VIEW==="sequence"||VIEW==="decision")) h.set("fullwidth","1");
   if(document.body.classList.contains("crit")&&(VIEW==="sequence"||VIEW==="decision")) h.set("showcriteria","1");
   for(const k in CHOICES) if(STATE[k]!==DEF[k]) h.set(k,STATE[k]);

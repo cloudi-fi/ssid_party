@@ -10,7 +10,7 @@ There are 16 criteria. Together they give 171,351 valid configurations, which pl
 
 ## The cast
 
-The nightclub is the network. The hall is the walled garden, the dancefloor door is the Internet, and the wristband is the authorization.
+The nightclub is the network. The hall is the walled garden, the dancefloor door is the Internet, and the badge is the authorization.
 
 | Character | Plays |
 |---|---|
@@ -28,8 +28,8 @@ In the comic, the Cloudi-Fi logo before a name marks Cloudi-Fi's own services: P
 ## Four views of the same story
 
 - **Comic**: the story, panel by panel. A dropdown in a panel's title shows the other ways that step can go.
-- **Sequence diagram**: the same steps as messages between the network components. "Show criteria" adds the decision points and their choices.
-- **Decision diagram**: the steps of the current story, top to bottom. "Show criteria" reveals every branch the story can take, with the current path in bold.
+- **Sequence**: the same steps as messages between the network components involved. "Show criteria" adds the decision points and their choices.
+- **Flow**: the steps of the current story, top to bottom. "Show criteria" reveals every branch the story can take, with the current path in bold.
 - **Criteria**: the scenario as flat, editable YAML.
 
 You can change a choice from any view: a panel title, a diagram chip or the YAML. All four views then follow.
@@ -60,6 +60,7 @@ index.html       markup, and the scripts in load order
 css/style.css    styles and @font-face rules
 js/draw.js       characters, speech bubbles, backgrounds
 js/graph.js      story graph: criteria, steps, path resolution (no DOM)
+js/refs.js       links on the panel tags (RFCs, vendor docs, Wikipedia)
 js/views.js      comic, sequence, decision and criteria renderers
 js/main.js       state in the URL, events, startup
 fonts/           self-hosted fonts and their licences

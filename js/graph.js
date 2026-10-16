@@ -243,9 +243,9 @@ N.nNoIp={end:1,narr:"Stuck in the hall.",loc:"in the hall",bg:"interior",tag:"AP
   a:[{k:"dave",x:210,b:"169.254-something? I can't go anywhere...",kind:"think",al:"center",mood:"flat"}],
   seq:[{f:"dave",t:"dave",l:"self-assigns 169.254.x.x"}]};
 N.d114={dec:"Option 114?",next:{k:"o114",map:{yes:"n7",no:"n7n"}}};
-N.n7={choice:"o114",narr:"Dee adds a note to the ticket.",loc:"cloakroom",bg:"cloakroom",tag:"DHCP · option 114",note:"DHCP slips the device the Captive-Portal API URL — with Dave's ID baked in.",
+N.n7={choice:"o114",narr:"Dee adds a note to the ticket.",loc:"cloakroom",bg:"cloakroom",tag:"DHCP · option 114",note:"DHCP slips the device the Captive-Portal API URL — with Dave's MAC and IP written in it.",
   a:[{k:"dave",x:130},{k:"dippy",x:320,b:"Dancefloor? Ask Cee Peahy first, with my note.",al:"right"}],
-  seq:[{f:"dave",t:"dippy",l:"DHCP REQUEST"},{f:"dippy",t:"dave",l:"ACK + option 114 (CPI URL ?mac=…)",r:1}],next:"dRole1"};
+  seq:[{f:"dave",t:"dippy",l:"DHCP REQUEST"},{f:"dippy",t:"dave",l:"ACK + option 114 (CPI URL with MAC and IP)",r:1}],next:"dRole1"};
 N.n7n={choice:"o114",narr:"No note this time.",loc:"cloakroom",bg:"cloakroom",tag:"DHCP · no option 114",note:"No Captive-Portal API URL in the lease: the OS will fall back to its own probe.",
   a:[{k:"dave",x:130},{k:"dippy",x:320,b:"There you go. Enjoy!",al:"right"}],
   seq:[{f:"dave",t:"dippy",l:"DHCP REQUEST"},{f:"dippy",t:"dave",l:"ACK (no option 114)",r:1}],next:"dRole2"};
@@ -259,22 +259,22 @@ N.nStale={end:1,choice:"visit",narr:"Dave doesn't bother checking.",loc:"the kio
   note:"On a previous visit the CPI told iOS this network wasn't captive (the CNA bypass). iOS remembers it: back on the SSID, even with the option 114 note in hand, it runs no probe and never asks the CPI again. Its session has expired, so it sits in the hall like a zombie, until the network is forgotten on the phone.",
   a:[{k:"dave",x:130,b:"This place was fine last time.",kind:"think",al:"left",zombie:true},{k:"chippy",x:320,mood:"flat"}],
   seq:[{f:"dave",t:"dave",l:"no probe · no CPI call (network remembered as not captive)"}]};
-N.n8={choice:"visit",narr:"Dave checks the kiosk.",loc:"the kiosk",bg:"kiosk",tag:"CPI · captive:true",note:s=>`CPI requests carry neither cookie nor MAC by default: the device is identified by the token in the DHCP note (the option 114 URL). The API answers captive:true and points to the portal URL — that first captive:true is what makes the OS open ${mini(s)}.`,
-  a:[{k:"dave",x:130,b:"Hi Cee — can't tell you who I am, but Dee Ashcipee's note can. Dancefloor yet?",al:"left"},{k:"chippy",x:320,b:"Not yet, Dave. See Port Al.",al:"right"}],
-  seq:s=>[{f:"dave",t:"chippy",l:"GET CPI URL (?mac=…)"},{f:"chippy",t:"dave",l:"{captive: true, user-portal-url}",r:1},{f:"dave",t:"dave",l:ios(s)?"captive:true → iOS opens the CNA":"captive:true → Android opens its sign-in app"}],next:"dEnf1"};
-N.n8m={narr:"Cee waves him on.",loc:"the kiosk",bg:"kiosk",tag:"CPI · captive:false",note:"CPI requests carry neither cookie nor MAC: the token in the DHCP note identifies the device. The role is already full, so the API answers captive:false — no portal at all.",
+N.n8={choice:"visit",narr:"Dave checks the kiosk.",loc:"the kiosk",bg:"kiosk",tag:"CPI · captive:true",note:s=>`CPI requests carry no cookie: the device is identified by the URL from the DHCP note (option 114), which has its MAC and IP written in it. The API answers captive:true and points to the portal URL — that first captive:true is what makes the OS open ${mini(s)}.`,
+  a:[{k:"dave",x:130,b:"Hi Cee — can't tell you who I am, but Dee Ashcipee's note can. Dancefloor yet?",al:"left"},{k:"chippy",x:320,b:"Hi Dave, you're captive. Please see Port Al.",al:"right"}],
+  seq:s=>[{f:"dave",t:"chippy",l:"GET CPI URL (MAC, IP)"},{f:"chippy",t:"dave",l:"{captive: true, user-portal-url}",r:1},{f:"dave",t:"dave",l:ios(s)?"captive:true → iOS opens the CNA":"captive:true → Android opens its sign-in app"}],next:"dEnf1"};
+N.n8m={narr:"Cee waves him on.",loc:"the kiosk",bg:"kiosk",tag:"CPI · captive:false",note:"CPI requests carry no cookie: the URL from the DHCP note, with Dave's MAC and IP in it, identifies the device. The role is already full, so the API answers captive:false — no portal at all.",
   a:[{k:"dave",x:130,b:"Hi Cee — can't tell you who I am, but Dee Ashcipee's note can. Dancefloor yet?",al:"left"},{k:"chippy",x:320,b:"You're free, Dave. Go dance!",al:"right"}],
-  seq:[{f:"dave",t:"chippy",l:"GET CPI URL (?mac=…)"},{f:"chippy",t:"dave",l:"{captive: false}",r:1}],next:"n19m"};
-N.n9={narr:"He lines up at the welcome desk.",loc:"reception",bg:"reception",tag:"Portal (mini-browser) · poll",
+  seq:[{f:"dave",t:"chippy",l:"GET CPI URL (MAC, IP)"},{f:"chippy",t:"dave",l:"{captive: false}",r:1}],next:"n19m"};
+N.n9={narr:"He lines up at the welcome desk.",loc:"reception",bg:"kiosk-reception",tag:"Portal (mini-browser) · poll",
   note:s=>`${ios(s)?"The CNA mini-browser":"Android's sign-in app"} opens the portal URL (which carries Dave's MAC) and the page polls for a verdict.`,
-  a:[{k:"dave",x:130,b:"Hi Port Al — what now?",al:"left"},{k:"porter",x:320,b:"Wait a sec, Dave...",al:"right",headSpin:true}],
+  a:[{k:"chippy",x:70},{k:"dave",x:200,b:"Hi Port Al — what now?",al:"center"},{k:"porter",x:355,b:"Hi Dave, wait a sec while I update your captive state...",al:"right",headSpin:true}],
   seq:s=>[{f:"dave",t:"porter",l:`${ios(s)?"CNA":"sign-in app"}: GET user-portal-url`},{f:"porter",t:"dave",l:"waiting page (polls backend)",r:1}],next:"n10"};
-N.n10={narr:"...and keeps pestering the kiosk.",loc:"the kiosk",bg:"kiosk",tag:"CPI · poll loop",note:"In parallel the OS keeps polling the Captive Portal API for a state change.",
-  a:[{k:"dave",x:130,b:"Yo Cee — now?",al:"left"},{k:"chippy",x:320,b:"Still captive.",al:"right"}],
+N.n10={narr:"...and keeps pestering the kiosk.",loc:"the kiosk",bg:"kiosk-reception",tag:"CPI · poll loop",note:"In parallel the OS keeps polling the Captive Portal API for a state change.",
+  a:[{k:"chippy",x:70},{k:"dave",x:200,b:"Yo Cee — now?",al:"center"},{k:"porter",x:355,headSpin:true}],
   seq:[{f:"dave",t:"chippy",l:"GET CPI URL (poll)"},{f:"chippy",t:"dave",l:"{captive: true}",r:1}],next:"dOs1"};
 N.dOs1={dec:"Device OS?",next:{k:"os",map:{ios:"n11",android:"n11a"}}};
-N.n11={narr:"The flag finally flips.",loc:"reception",bg:"reception",tag:"CPI · captive:false",note:"API flips to captive:false; the mini-browser shows a 'done' button but the guest should not hit it.",
-  a:[{k:"chippy",x:90,b:"You're clear!",al:"left"},{k:"dave",x:205,b:"...and now?",al:"center"},{k:"porter",x:330,b:"Tap to continue.",al:"right"}],
+N.n11={narr:"The flag finally flips.",loc:"reception",bg:"kiosk-reception",tag:"CPI · captive:false",note:"API flips to captive:false; the mini-browser shows a 'done' button but the guest should not hit it.",
+  a:[{k:"chippy",x:70,b:"You're clear!",al:"left"},{k:"dave",x:200},{k:"porter",x:355,b:"Now tap here to continue.",al:"right"}],
   seq:[{f:"porter",t:"chippy",l:"set captive = false for MAC"},{f:"dave",t:"chippy",l:"GET CPI URL (poll)"},{f:"chippy",t:"dave",l:"{captive: false}",r:1},{f:"porter",t:"dave",l:"shows 'continue' button",r:1}],next:"dDone"};
 N.n11a={narr:"The app closes itself.",loc:"reception",bg:"reception",tag:"CPI · captive:false → app closes",note:"Android's sign-in app closes by itself as soon as the API says captive:false — no button to tap.",
   a:[{k:"chippy",x:90,b:"You're clear!",al:"left"},{k:"dave",x:226,b:"...wait, where did the portal go?",al:"center",nophone:true},{k:"porter",x:330}],
@@ -287,7 +287,7 @@ N.n12d={choice:"done",narr:"Dave taps Done.",loc:"reception",bg:"reception",tag:
   a:[{k:"dave",x:130,b:"'Done'? Sounds right.",al:"left"},{k:"porter",x:320,b:"No, Dave — not that one!",al:"right",mood:"open"}],
   seq:[{f:"dave",t:"dave",l:"taps 'Done' · CNA closes"}],next:"n12d2"};
 N.n12d2={end:1,narr:"An invisible wall.",loc:"in the hall",bg:"dance-wall",tag:"HTTPS fails silently · the end",note:s=>ctrlLike(s)?"iOS believes it's online, so the portal never comes back and every HTTPS request silently fails. The only way out: open a site WITHOUT https, so the controller can redirect it to the portal.":"iOS believes it's online, so the portal never comes back and every HTTPS request silently fails. The only way out: open a site WITHOUT https, so the firewall can redirect it to the portal. (Exception: a firewall that decrypts SSL can redirect HTTPS too — rare for guests.)",
-  a:[{k:"dave",x:296,b:"Huh?! Why can't I get through?",kind:"think",al:"left",mood:"open"}],
+  a:[{k:"dave",x:296,b:"Wait — the S in HTTPS stands for STUCK?",kind:"think",al:"center",bx:-85,mood:"open"}],
   seq:s=>[{f:"dave",t:ctrlLike(s)?"troller":"phyre",l:"HTTPS requests · silently dropped"},{f:"dave",t:"dave",l:"no portal, no Internet"}]};
 N.n12a={narr:"Hands-free.",loc:"in the hall",bg:"dance-door",tag:"Sign-in app closed → Chrome",note:"No mini-browser left to manage: Dave opens Chrome himself and heads for the dancefloor.",
   a:[{k:"dave",x:210,b:"Not captive anymore? Let's go to 3wi.fi now!",kind:"think",al:"center",nophone:true}],
@@ -396,9 +396,9 @@ N.n16er={narr:"Round two.",loc:"reception",bg:"reception",tag:"Portal · login a
 N.n16ne2=C(N.n16e2,{tag:"Portal · login (credentials)",note:"On Android, switching apps doesn't drop the Wi-Fi: the sign-in app is still waiting when Dave comes back from his mail.",
   a:[{k:"dave",x:130,b:"Back from my inbox — still connected!",al:"left"},{k:"porter",x:320,b:"Welcome in!",al:"right"}]});
 
-N.n17={narr:"Verified — here's the band.",loc:"reception",bg:"reception",tag:"Portal · auth success",
+N.n17={narr:"Verified — here's your badge.",loc:"reception",bg:"reception",tag:"Portal · auth success",
   note:s=>fwL(s)?"The portal validates the registration and hands Dave credentials to present to the on-site firewall.":urlHandback(s)?(s.vendor==="mist"?"The portal validates the registration and sends Dave back to Mist with a signed authorization URL — no RADIUS involved.":"The portal validates the registration and sends Dave back to Meraki's grant URL — no RADIUS involved."):cloud(s)?`Acting as ${FWN(s)}'s identity provider, the portal sends Dave back with a SAML assertion for Phyre Wall (${zs(s)?"IdP-initiated":"SP-initiated"}).`:s.vendor==="ruckus-smartzone"?"The portal validates the registration and calls the controller's northbound API to authorize the session.":sso(s)?"The portal validates the assertion and hands Dave credentials to present to the controller.":"The portal validates the registration and hands Dave credentials to present to the controller.",
-  a:s=>[{k:"dave",x:130,b:({sso:"Ida Pee vouched. In now?",mfa:"Ida Pee vouched. In now?",passkey:"Ida Pee vouched. In now?",form:"All filled in. In now?",sms:"Code accepted. In now?",email:"Logged in. In now?"})[s.reg],al:"left",band:"--band-green"},{k:"porter",x:320,b:s=>urlHandback(s)?(s.vendor==="mist"?"Band's yours — and a stamp. Show Conn Troller.":"Band's yours. Tell Conn I said so."):s.vendor==="ruckus-smartzone"&&ctrlLike(s)?"Band's yours. I'll call Conn Troller myself.":ctrlLike(s)?"Band's yours. See Conn Troller.":"Band's yours. Show Phyre Wall.",al:"right"}],
+  a:s=>[{k:"dave",x:130,b:({sso:"Ida Pee vouched. In now?",mfa:"Ida Pee vouched. In now?",passkey:"Ida Pee vouched. In now?",form:"All filled in. In now?",sms:"Code accepted. In now?",email:"Logged in. In now?"})[s.reg],al:"left",band:"--band-green"},{k:"porter",x:320,b:s=>urlHandback(s)?(s.vendor==="mist"?"Badge's yours — and a stamp. Show Conn Troller.":"Badge's yours. Tell Conn I said so."):s.vendor==="ruckus-smartzone"&&ctrlLike(s)?"Badge's yours. I'll call Conn Troller myself.":ctrlLike(s)?"Badge's yours. See Conn Troller.":"Badge's yours. Show Phyre Wall.",al:"right"}],
   seq:s=>[{f:"dave",t:"porter",l:sso(s)?"POST assertion":"registration complete"},urlHandback(s)?{f:"porter",t:"dave",l:s.vendor==="mist"?"302 → Mist signed authorization URL":"302 → Meraki grant URL",r:1}:s.vendor==="ruckus-smartzone"&&ctrlLike(s)?{f:"porter",t:"troller",l:"API call (NBI): authorize session"}:ctrlLike(s)?{f:"porter",t:"dave",l:"credentials + redirect to controller login",r:1}:fwL(s)?{f:"porter",t:"dave",l:"credentials + redirect to firewall login",r:1}:{f:"porter",t:"dave",l:zs(s)?"SAML assertion (IdP-initiated)":"SAML response (SP-initiated)",r:1}],next:"dEnf5"};
 N.n18g={choice:"mlogin",narr:s=>s.vendor==="mist"?"A stamp instead of a list.":"Port Al's word is enough.",loc:"in the hall",bg:"interior",tag:"Controller · grant URL / signed URL",
   note:s=>s.vendor==="mist"?"Mist: the portal redirects Dave to Mist's authorization URL with a signed token; Mist checks the signature and authorizes the session on the spot, no RADIUS.":"Meraki grant URL: the portal redirects Dave to Meraki's base_grant_url with a session duration; Meraki authorizes the session on the spot. No RADIUS, and nothing is signed.",
@@ -409,7 +409,7 @@ N.n18api={narr:"Port Al phones ahead.",loc:"in the hall",bg:"interior",tag:"Cont
   a:[{k:"dave",x:78,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Port Al just called. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
   seq:[{f:"troller",t:"ray",l:"Access-Request (session from API)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
 N.n18={choice:"mlogin",narr:"One last double-check.",loc:"in the hall",bg:"interior",tag:"RADIUS · Access-Request (role = guest)",note:"The controller re-authenticates Dave with the portal-issued credentials; RADIUS returns the guest role.",
-  a:[{k:"dave",x:90,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Nice band. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
+  a:[{k:"dave",x:90,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Nice badge. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
   seq:[{f:"dave",t:"troller",l:"POST controller login (credentials)"},{f:"troller",t:"ray",l:"Access-Request (credentials)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
 N.n19={ok:1,narr:"At last, the dancefloor.",loc:"the dancefloor",bg:"dancefloor",tag:"role = guest → Internet",note:"New role applied; traffic flows. Dave is finally online.",
   a:[{k:"troller",x:270,b:"Go ahead, Dave!",al:"left"},{k:"dave",x:380,b:"Finally — internet!",al:"right",band:"--band-green"}],
@@ -524,7 +524,7 @@ N.n14pL={narr:"Not registered, not dancing.",loc:"dancefloor door",bg:"dance-doo
   seq:[{f:"phyre",t:"dave",l:"HTTP 302 → portal URL",r:1}],next:"n15n"};
 N.n18L={narr:"One last double-check.",loc:"in the hall",bg:"interior",tag:"RADIUS · Access-Request (from firewall)",
   note:"The on-site firewall checks the portal-issued credentials with RADIUS — the controller isn't involved anymore.",
-  a:[{k:"dave",x:90,b:"Hey Phyre — what's up?",al:"left",band:"--band-green"},{k:"phyre",x:235,b:"Nice band. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
+  a:[{k:"dave",x:90,b:"Hey Phyre — what's up?",al:"left",band:"--band-green"},{k:"phyre",x:235,b:"Nice badge. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
   seq:[{f:"dave",t:"phyre",l:"POST firewall login (credentials)"},{f:"phyre",t:"ray",l:"Access-Request (credentials)"},{f:"ray",t:"phyre",l:"Access-Accept (guest group)",r:1}],next:"n19L"};
 N.n19L={ok:1,narr:"At last, the dancefloor.",loc:"the dancefloor",bg:"dancefloor",tag:"firewall policy → Internet",note:"The on-site firewall now lets Dave's traffic through. He's online.",
   a:[{k:"phyre",x:270,b:"Go ahead, Dave!",al:"left"},{k:"dave",x:380,b:"Finally — internet!",al:"right",band:"--band-green"}],

@@ -10,7 +10,7 @@ function panelSVG(id,st){
     const phone=a.k==="dave" ? (a.nophone?"none":st.os) : null;
     s+=figure(a.k,a.x,{band,mood:a.mood||"smile",headSpin:a.headSpin||false,phone,antennas:a.k==="phyre"&&fwBo(st),cloudHead:(a.k==="phyre"&&cloud(st))||(a.k==="dippy"&&cloudDhcp(st)),zombie:!!a.zombie,ours:OURS(a.k,st)});
   }
-  for(const a of actors){ const b=V(a.b,st); if(b) s+=bubble(a.x,b,{kind:a.kind||"speech",align:a.al||"center",top:a.top||false,color:CH[a.k].color}); }
+  for(const a of actors){ const b=V(a.b,st); if(b) s+=bubble(a.x,b,{kind:a.kind||"speech",align:a.al||"center",top:a.top||false,color:CH[a.k].color,shift:a.bx||0}); }
   return s+`</svg>`;
 }
 function titleSel(key){
@@ -34,7 +34,7 @@ function renderComic(){
     return `<figure class="panel" id="p-${id}" ${ch?`data-choice="${p.choice}"`:""}>
       <div class="cap"><span class="pnum">${i+1}</span>${ch?titleSel(p.choice):`<span class="narr">${esc(NB(FULL(V(p.narr,STATE))))}</span>`}<span class="loc">${esc(p.loc)}</span></div>
       ${panelSVG(id,STATE)}
-      <div class="foot"><span class="tag">${esc(p.tag)}</span><span class="note">${esc(NB(V(p.note,STATE)))}</span></div>
+      <div class="foot"><span class="tag">${tagHTML(p.tag)}</span><span class="note">${esc(NB(V(p.note,STATE)))}</span></div>
     </figure>`; }).join("");
   const lastId=ids[ids.length-1];
   if(N[lastId].end) h+=`<div class="endcard"><b>The end.</b> Dave never reaches the dancefloor with this configuration.</div>`;
@@ -43,7 +43,8 @@ function renderComic(){
 }
 
 /* ---------- sequence diagram ---------- */
-let LGAP=108, SW=120+(LANES.length-1)*108;
+// lanes drawn in the sequence diagram: all of them with "Show criteria", otherwise only the actors in the story
+let SLANES=LANES, LGAP=108, SW=120+(LANES.length-1)*108;
 const LX=i=>60+i*LGAP;
 function chipSVG(x,y,label,key,val){
   const w=label.length*6.1+18, on=STATE[key]===val;
@@ -52,7 +53,7 @@ function chipSVG(x,y,label,key,val){
     <text x="${x+9}" y="${y+13}" font-family="var(--font-sans)" font-size="11" fill="${on?"var(--surface)":"var(--ink)"}">${esc(label)}</text></g>`};
 }
 function msgSVG(m,y){
-  const fi=LANES.indexOf(m.f), ti=LANES.indexOf(m.t), col=CH[m.f].color, lw=m.l.length*6.1+12;
+  const fi=SLANES.indexOf(m.f), ti=SLANES.indexOf(m.t), col=CH[m.f].color, lw=m.l.length*6.1+12;
   let s="";
   if(fi===ti){
     const x=LX(fi);
@@ -81,8 +82,10 @@ function laneLogo(k,s){
 function renderSeq(){
   const wide=document.body.classList.contains("wide"), host=document.getElementById("sequence");
   const avail=wide&&host&&host.clientWidth?host.clientWidth-4:0;
-  LGAP=Math.max(108,Math.floor((avail-120)/(LANES.length-1))||108); SW=120+(LANES.length-1)*LGAP;
   const ids=path(STATE), rowH=34, crit=document.body.classList.contains("crit"); // messages only, unless "Show criteria" adds the alt frames, labels and choice chips
+  const used=new Set(); for(const id of ids) for(const m of V(N[id].seq,STATE)||[]){ used.add(m.f); used.add(m.t); }
+  SLANES=crit?LANES:LANES.filter(k=>used.has(k));
+  LGAP=Math.max(108,Math.floor((avail-120)/(SLANES.length-1))||108); SW=120+(SLANES.length-1)*LGAP;
   let y=14, body="";
   for(const id of ids){
     const p=N[id], seq=V(p.seq,STATE);
@@ -107,9 +110,9 @@ function renderSeq(){
   if(ids.includes("nHack")&&N[ids[ids.length-1]].ok){ const x=LX(0); body+=`<text x="${x-8}" y="${y+4}" font-family="var(--font-sans)" font-size="11" font-weight="500" fill="var(--c-fail)">Internet access · identity never verified (DHCP blacklist bypassed)</text>`; y+=20; }
   if(N[ids[ids.length-1]].end){ const x=LX(0); body+=`<line x1="${x-12}" y1="${y-8}" x2="${x+12}" y2="${y+8}" stroke="var(--c-fail)" stroke-width="2.4"/><line x1="${x+12}" y1="${y-8}" x2="${x-12}" y2="${y+8}" stroke="var(--c-fail)" stroke-width="2.4"/><text x="${x+20}" y="${y+4}" font-family="var(--font-sans)" font-size="11" fill="var(--c-fail)">no Internet access</text>`; y+=20; }
   const H=y+10;
-  let lines=""; LANES.forEach((k,i)=>{ lines+=`<line x1="${LX(i)}" y1="0" x2="${LX(i)}" y2="${H}" stroke="var(--line)" stroke-width="1.2" stroke-dasharray="4 4"/>`; });
+  let lines=""; SLANES.forEach((k,i)=>{ lines+=`<line x1="${LX(i)}" y1="0" x2="${LX(i)}" y2="${H}" stroke="var(--line)" stroke-width="1.2" stroke-dasharray="4 4"/>`; });
   let head=`<svg viewBox="0 0 ${SW} 40" width="${SW}" height="40" aria-hidden="true">`;
-  LANES.forEach((k,i)=>{ const x=LX(i); head+=`<rect x="${x-48}" y="5" width="96" height="30" rx="6" fill="var(--surface)" stroke="${CH[k].color}" stroke-width="2"/>`+nameLabel(x,24,TECH[k],"var(--ink)",laneLogo(k,STATE)); });
+  SLANES.forEach((k,i)=>{ const x=LX(i); head+=`<rect x="${x-48}" y="5" width="96" height="30" rx="6" fill="var(--surface)" stroke="${CH[k].color}" stroke-width="2"/>`+nameLabel(x,24,TECH[k],"var(--ink)",laneLogo(k,STATE)); });
   head+=`</svg>`;
   document.getElementById("sequence").innerHTML=`<div class="seqhead"><div class="seqheadin" style="min-width:${SW}px">${head}</div></div><div class="seqscroll seqbody"><div class="seqinner" style="min-width:${SW}px">
     <svg viewBox="0 0 ${SW} ${H}" width="${SW}" height="${H}" role="img" aria-label="Sequence diagram">${lines}${body}</svg></div></div>`;
@@ -189,7 +192,7 @@ function renderPath(){
   });
   const H=y-gap+pad;
   document.getElementById("decision").innerHTML=`<p class="tintro">The steps of the current story, top to bottom. Show criteria to see every branch and switch between them.</p><div class="seqscroll"><div class="decinner decpath">
-    <svg viewBox="0 0 ${w} ${H}" width="${w}" height="${H}" role="img" aria-label="Decision diagram, current story">${s}</svg></div></div>`;
+    <svg viewBox="0 0 ${w} ${H}" width="${w}" height="${H}" role="img" aria-label="Flow, current story">${s}</svg></div></div>`;
 }
 function renderDecision(){
   if(!document.body.classList.contains("crit")) return renderPath();
@@ -235,7 +238,7 @@ function renderDecision(){
     }
   }
   document.getElementById("decision").innerHTML=`<p class="tintro">Start at the top left. Scroll sideways to explore every branch; the bold path is the current configuration. Click a label under a diamond to switch branch.</p><div class="seqscroll"><div class="decinner" style="min-width:${L.W}px">
-    <svg viewBox="0 0 ${L.W} ${L.H}" width="${L.W}" height="${L.H}" role="img" aria-label="Decision diagram">${e}${n}${chips}</svg></div></div>`;
+    <svg viewBox="0 0 ${L.W} ${L.H}" width="${L.W}" height="${L.H}" role="img" aria-label="Flow, every branch">${e}${n}${chips}</svg></div></div>`;
 }
 
 /* ---------- criteria (flat YAML) ---------- */

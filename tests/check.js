@@ -18,7 +18,7 @@ const ctx=vm.createContext({console,URLSearchParams,
   document:{body:{classList:{remove(){},toggle(){return true},contains(c){return c==="crit"&&showCrit}}},getElementById:el,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}},
   window:{addEventListener(){},scrollBy(){},scrollTo(){}},location:{hash:"",pathname:"/",search:"",href:"https://x/y"},history:{replaceState(){}}});
 for(const f of scripts) vm.runInContext(fs.readFileSync(f,"utf8"),ctx,{filename:f});
-const T=vm.runInContext(`({NN:N,P:path,FP:fullPath,CC:CHOICES,DD:DEF,rc:renderComic,rs:renderSeq,rd:renderDecision,set:s=>{STATE=s},L:layout,norm:normalize,opts:optsFor})`,ctx);
+const T=vm.runInContext(`({NN:N,P:path,FP:fullPath,CC:CHOICES,DD:DEF,rc:renderComic,rs:renderSeq,rd:renderDecision,set:s=>{STATE=s},L:layout,norm:normalize,opts:optsFor,REFS})`,ctx);
 const {NN,P,FP,CC,DD,rc,rs,rd}=T;
 function rects(f,rx){return [...f.matchAll(new RegExp('<rect x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.]+)" height="([\\d.]+)" rx="'+rx+'"','g'))].map(m=>({x:+m[1],y:+m[2],w:+m[3],h:+m[4]}));}
 function ov(a,b){return a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;}
@@ -44,6 +44,9 @@ for(const s of uniq.values()){
   for(const id of P(s)){ const ch=NN[id].choice; if(ch && T.opts(ch,s).length>1 && !T.opts(ch,s).some(o=>o.v===s[ch])){issues++;console.log("hidden current option",id,ch,JSON.stringify(s));} }
 }
 const unreached=Object.keys(NN).filter(x=>!visited.has(x)); if(unreached.length){issues++;console.log("unreached",unreached);}
+// every reference in refs.js must match at least one panel tag
+const allTags=Object.values(NN).filter(n=>!n.dec).map(n=>n.tag), deadRefs=T.REFS.filter(r=>!allTags.some(tg=>r[0].test(tg)));
+if(deadRefs.length){issues++;console.log("unused references",deadRefs.map(r=>String(r[0])));}
 const L=T.L(); const bx=Object.entries(L.box).map(([id,b])=>({id,x:b.x-86,y:b.top,w:172,h:b.h}));
 for(let i=0;i<bx.length;i++)for(let j=i+1;j<bx.length;j++)if(ov(bx[i],bx[j])){issues++;console.log("box overlap",bx[i].id,bx[j].id);}
 T.set({...DD}); rd(); const ch=rects(els.decision.innerHTML,8);

@@ -56,8 +56,10 @@ function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=n
   }
   const eyes = c.acc==="shades" ? "" :
     `<circle cx="${cx-5}" cy="${cy-2}" r="1.7" fill="var(--ink)"/><circle cx="${cx+5}" cy="${cy-2}" r="1.7" fill="var(--ink)"/>`;
+  // the authorization: a badge with a check mark, held in the free (right) hand
   const bandEl = band ?
-    `<rect x="${cx+14.5}" y="${cy+37}" width="8" height="4.5" rx="2" style="fill:var(${band})" stroke="rgba(0,0,0,.18)" stroke-width="0.5"/>` : "";
+    `<rect x="${cx+13}" y="${cy+34}" width="17" height="13" rx="2.2" style="fill:var(${band})" stroke="rgba(0,0,0,.25)" stroke-width="0.6"/>`
+    + `<path d="M${cx+17.2} ${cy+40.6} l2.8 2.8 l5.4 -5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>` : "";
   let accStr = flip ? "" : acc(c.acc,cx,cy);
   if(antennas) accStr+=acc("antenna",cx,cy);
   if(key==="dave" && phone==="none") accStr="";
@@ -89,7 +91,8 @@ function wrap(t,max){
 }
 function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
-function bubble(cx,text,{kind="speech",align="center",top=false,color="var(--c-troller)"}={}){
+// shift: horizontal offset of the bubble only (the tail still points at the speaker)
+function bubble(cx,text,{kind="speech",align="center",top=false,color="var(--c-troller)",shift=0}={}){
   const shout=kind==="shout";
   const font = shout?"var(--font-sfx)":"var(--font-comic)";
   const fs = shout?17:14.5;
@@ -105,6 +108,7 @@ function bubble(cx,text,{kind="speech",align="center",top=false,color="var(--c-t
   else if(align==="right") x=Math.max(226,Math.min(cx-w/2,W-8-w));
   else x=Math.max(8,Math.min(cx-w/2,W-8-w));
   if(x<8)x=8;
+  if(shift) x=Math.max(8,Math.min(x+shift,W-8-w));
   let y=top?6:(headTop-30-h); if(y<6)y=6;
   const tailX=Math.max(x+14,Math.min(cx,x+w-14));
   const stroke = shout?color:"var(--ink)";
@@ -112,7 +116,9 @@ function bubble(cx,text,{kind="speech",align="center",top=false,color="var(--c-t
   const dash = kind==="think"?'stroke-dasharray="4 3"':"";
   let tail;
   if(kind==="think"){
-    tail=`<circle cx="${tailX}" cy="${y+h+7}" r="3.2" fill="var(--surface)" stroke="${stroke}" stroke-width="1.2"/><circle cx="${tailX-5}" cy="${y+h+15}" r="2" fill="var(--surface)" stroke="${stroke}" stroke-width="1.2"/>`;
+    // second dot of the thought trail: steps towards the speaker when the bubble was pushed aside
+    const c2x=Math.abs(cx-tailX)>8?tailX+Math.sign(cx-tailX)*Math.min(14,Math.abs(cx-tailX)/2):tailX-5;
+    tail=`<circle cx="${tailX}" cy="${y+h+7}" r="3.2" fill="var(--surface)" stroke="${stroke}" stroke-width="1.2"/><circle cx="${c2x}" cy="${y+h+15}" r="2" fill="var(--surface)" stroke="${stroke}" stroke-width="1.2"/>`;
   } else {
     tail=`<path d="M${tailX-7} ${y+h-1} L${tailX+8} ${y+h-1} L${cx} ${headTop-4} Z" fill="var(--surface)" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/>`;
   }
@@ -216,6 +222,7 @@ function bg(type){
     case "cloakroom-z": return inside()+counter(275,false)+skeleton(372)+skeleton(406);
     case "kiosk": return inside()+kiosk(300);
     case "reception": return inside()+counter(320,true);
+    case "kiosk-reception": return inside()+kiosk(50)+counter(345,true);
     case "booth": return inside()+booth(330);
     case "interior": return inside();
     case "dance-door": return danceDoorHall(380);

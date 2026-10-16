@@ -11,7 +11,7 @@ This note is for whoever picks the project up next, human or agent. It records t
 Three audiences, in order of appearance:
 
 1. **Non-technical readers** — the comic must stay readable as a story with no legend, no reading hint and no jargon in the dialogue. The technical layer lives in the panel footers.
-2. **Support engineers and customers** — the four views (comic, sequence diagram, decision diagram, criteria) are the same story graph rendered four ways, so a support case can be shared as a link that opens on the exact scenario.
+2. **Support engineers and customers** — the four views (Comic, Sequence, Flow, Criteria) are the same story graph rendered four ways, so a support case can be shared as a link that opens on the exact scenario.
 3. **AI agents and the tenant-integration detection tool** — the *Criteria* tab is a flat YAML document. The detection tool should eventually produce it (with weighted or candidate values) and an agent should be able to read the story back from it: "given this tenant, this device and these observations, where on the map is the device and what breaks next".
 
 Goal 3 is why the graph is declarative (criteria → decisions → panels) and why every story must terminate cleanly. The engineering backlog (§9) is what stands between the current state and a dependable agent-facing reference.
@@ -24,6 +24,7 @@ Goal 3 is why the graph is declarative (criteria → decisions → panels) and w
 | `css/style.css` | All styles, starting with the `@font-face` rules of the self-hosted fonts. |
 | `js/draw.js` | Drawing: characters, bubbles, backgrounds. |
 | `js/graph.js` | Story graph: criteria, defaults, titles, nodes, path resolution, `normalize`. No DOM: loads alone in Node. |
+| `js/refs.js` | Links on the panel tags: concept → standard (RFC, W3C, OASIS, OpenID), vendor doc or Wikipedia, applied automatically to every tag that mentions the concept. |
 | `js/views.js` | `panelSVG` and the four renderers. |
 | `js/main.js` | State in the URL hash, event handlers, startup. |
 | `fonts/` | Bangers, Patrick Hand and Inter (latin subset, woff2) with their OFL licences. |
@@ -38,14 +39,14 @@ The project started as a claude.ai artifact. It is now a static site with no bui
 
 ## 3. How it is built
 
-The JS is four classic scripts (not ES modules) sharing one global scope, loaded by `index.html` in this order: `draw.js` → `graph.js` → `views.js` → `main.js`. Code that runs at load time may only use what an earlier file declares; calls made later from inside functions can reach any file. `tests/check.js` loads the scripts the same way, so a wrong order fails the check. Landmarks, in load order:
+The JS is five classic scripts (not ES modules) sharing one global scope, loaded by `index.html` in this order: `draw.js` → `graph.js` → `refs.js` → `views.js` → `main.js`. Code that runs at load time may only use what an earlier file declares; calls made later from inside functions can reach any file. `tests/check.js` loads the scripts the same way, so a wrong order fails the check. Landmarks, in load order:
 
 - **Drawing** (`draw.js`): `figure(key, cx, opts)` draws a character (options: `band`, `mood`, `flip`, `headSpin`, `phone`, `antennas`, `cloudHead`, `zombie`), `bubble(...)` draws speech/thought/shout bubbles (wrap at 18 characters), background helpers (`interior`, `danceDoorHall`, `kiosk`, `desk`, …).
 - **`CHOICES`** (`graph.js`, like everything down to `path`) — the criteria. Each has a question (`q`, comic wording), a technical name (`tq`) and options `{v, label, t, when}`. `when(state)` says whether the option applies; a criterion with no applicable option is "not applicable" (shown as `none` in YAML). **Declaration order matters**: a criterion whose `when` depends on another criterion must be declared after it (the test harness enumerates in that order).
 - **`DEF`** — default value of every criterion. The default story is the baseline everything else is a deviation from.
 - **`TITLES`** — per criterion and value, the panel title shown in the title dropdown of the panel that carries that choice. Strings or `state => string`.
 - **`N`** — the story graph. Two node kinds:
-  - *Panel*: `{narr, loc, bg, tag, note, a, seq, next, choice?, end?, ok?}`. `narr` is the title, `loc` the place label, `bg` the background, `tag` the technical label, `note` the footer subtext, `a` the actors (array or `state => array`: `{k, x, b, al, kind, mood, band, zombie, …}`), `seq` the sequence-diagram messages, `next` the next node id. `choice` names the criterion whose dropdown sits in this panel's title. `end: 1` is a failure ending, `ok: 1` a dancefloor ending.
+  - *Panel*: `{narr, loc, bg, tag, note, a, seq, next, choice?, end?, ok?}`. `narr` is the title, `loc` the place label, `bg` the background, `tag` the technical label, `note` the footer subtext, `a` the actors (array or `state => array`: `{k, x, b, al, kind, top, bx, mood, band, zombie, …}`; `top` puts the bubble at the top of the panel, `bx` shifts it sideways without moving the speaker), `seq` the sequence-diagram messages, `next` the next node id. `choice` names the criterion whose dropdown sits in this panel's title. `end: 1` is a failure ending, `ok: 1` a dancefloor ending.
   - *Decision*: `{dec, next}` with `next` either `{k, map:{value: nodeId}}` (one criterion) or `{dl, cases:[{when, l, set, to}]}` (computed; `l` is the chip label in the decision diagram, `set` the criteria that chip applies when clicked).
 - **`nextOf(id, state)`** resolves a decision. Map decisions fall back to the default value (or the first applicable option) when the stored value no longer applies.
 - **`normalize(state)`** rewrites impossible combinations after any change (vendor ↔ enforcement, Meraki/Mist RADIUS-optional, FortiGate-only modes, etc.).
@@ -58,7 +59,7 @@ Helpers worth knowing: `FULL(text)` expands first names to full names in titles,
 ## 4. Editing and verification workflow
 
 1. Edit the file concerned, usually `js/graph.js` (string replacement in a script is the safest way to touch the graph without breaking the rest).
-2. `node tests/check.js index.html` — must end with `issues: 0`. It enumerates every valid criteria combination, walks every story and reports loops, dangling stories, unreachable nodes, `undefined`/`NaN` in any view, bubble overlaps or out-of-bounds in panels, a selected option hidden from its own menu, name labels (with their logo) overlapping or leaving the panel, and box/chip collisions in the decision diagram. Last known good: 171 351 valid states, 1 357 distinct stories, 0 issues.
+2. `node tests/check.js index.html` — must end with `issues: 0`. It enumerates every valid criteria combination, walks every story and reports loops, dangling stories, unreachable nodes, `undefined`/`NaN` in any view, bubble overlaps or out-of-bounds in panels, a selected option hidden from its own menu, name labels (with their logo) overlapping or leaving the panel, a reference in `refs.js` that matches no tag, and box/chip collisions in the decision diagram. Last known good: 171 351 valid states, 1 357 distinct stories, 0 issues.
 3. Look at the result. Rasterising a panel helps: call `panelSVG(id, state)` from a tiny Node script (same DOM stubs as the harness), replace the CSS variables, and render with `cairosvg` or `rsvg-convert`.
 4. Keep a backup of the previous version before structural changes.
 
@@ -66,7 +67,7 @@ The harness cannot see font rendering; bubble wrapping is computed from characte
 
 ## 5. The universe
 
-Nightclub **SSID_PARTY** (the SSID_PARTY sign is the entrance's lintel; speech bubbles may partly cover it). The hall is the walled garden, the dancefloor door is the Internet (the INTERNET sign is its lintel; speech bubbles may partly cover it), the wristband is the authorization. Music notes always point right (and sit inside the door frame when the scene is outside).
+Nightclub **SSID_PARTY** (the SSID_PARTY sign is the entrance's lintel; speech bubbles may partly cover it). The hall is the walled garden, the dancefloor door is the Internet (the INTERNET sign is its lintel; speech bubbles may partly cover it), the badge is the authorization. Music notes always point right (and sit inside the door frame when the scene is outside).
 
 | Character | Role | Look |
 |---|---|---|
@@ -88,7 +89,7 @@ Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it 
 - **Names.** Titles use full names (automatic through `FULL()`). Direct address uses first names ("Hi Dave", "Hey Ray", "Hi Ida"). Referring to a third party uses the full name ("See Dee Ashcipee", "Ask Cee Peahy first"). Port Al is always "Port Al". Composite names never break across lines (`NB()`).
 - **Titles** are sentences in the story's voice, never "what if…". Alternatives of a choice appear as other titles in the dropdown of the same panel. There is no notion of "main story"; the default is just the default.
 - **Dialogue** is short and in character; bubbles wrap at 18 characters, shout bubbles take the speaker's colour. Thought bubbles for inner state.
-- **Footer** = technical tag (what this step is, e.g. `802.11 · assoc`, `DHCP · no option 114`) above a full-width note (why it happens, what it implies). The note is where the technical truth lives; keep it precise and reusable by support.
+- **Footer** = technical tag (what this step is, e.g. `802.11 · assoc`, `DHCP · no option 114`) above a full-width note (why it happens, what it implies). The note is where the technical truth lives; keep it precise and reusable by support. Concepts in the tag are linked automatically from `REFS` (`refs.js`): add an entry there for a new concept (standard first, vendor doc for vendor-specific notions, Wikipedia otherwise), more specific entries first.
 - **Endings.** Failures end with a neutral "The end." card. The static-IP bypass that really reaches the Internet ends with a red-bordered card saying nobody ever verified Dave's identity. Dave only says "Ahah, I'm in, son of a switch." (smiling) in that real-bypass case.
 - No legend, no reading hint, no dark mode (light theme is forced; the viewer's dark mode mangled the page).
 
@@ -96,7 +97,7 @@ Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it 
 
 - Scrolling comic, two panels per row. Panel = numbered title (dropdown with optgroups when a choice applies; menu only shown if more than one option applies), scene SVG (full-bleed interior, floor edge to edge, names under the floor), footer.
 - Header: on desktop (≥ 1025 px) the view tabs sit right of the title, with the tool buttons ("Show criteria", "Full width") under them on the tagline line (out of the tab row, so the tabs never move); on tablets and phones the tabs go below the tagline.
-- Tabs: Comic / Sequence diagram (technical participant names, coloured lanes, sticky header synced horizontally, messages only by default; a "Show criteria" toggle, off by default, adds the `alt` frames with the criterion and its clickable choice chips; red end markers, "Full width" button) / Decision diagram (steps framed in the colour of the actor that handles them, as in the sequence-diagram lanes: the actor most present in the step's messages besides the device, ties going to the more specific component; endings marked ✓ or ✕; the current story's steps in one column by default; "Show criteria", shared with the sequence diagram, shows the auto-layout flowchart of every branch: diamonds with clickable value chips below, current path in bold; "Full width") / Criteria (editable YAML, validation, Apply or Ctrl+Enter, derived block, share link).
+- Tabs: Comic / Sequence (sequence diagram: technical participant names; only the actors in the story unless "Show criteria" is on, which keeps all eight lanes so the layout stays put while switching; coloured lanes, sticky header synced horizontally, messages only by default; a "Show criteria" toggle, off by default, adds the `alt` frames with the criterion and its clickable choice chips; red end markers, "Full width" button) / Flow (decision diagram, `view=flow` in the URL, older `view=decision` links still open it: steps framed in the colour of the actor that handles them, as in the sequence-diagram lanes: the actor most present in the step's messages besides the device, ties going to the more specific component; endings marked ✓ or ✕; the current story's steps in one column by default; "Show criteria", shared with the sequence diagram, shows the auto-layout flowchart of every branch: diamonds with clickable value chips below, current path in bold; "Full width") / Criteria (editable YAML, validation, Apply or Ctrl+Enter, derived block, share link).
 - Every control that changes a criterion goes through the same state → `normalize` → re-render path. Never special-case a view.
 
 ## 8. Technical truths the graph encodes
@@ -117,7 +118,7 @@ Schema conventions: one line per criterion, `none` when not applicable, `?` unkn
 
 **Cloud DHCP.** Its pools (quarantine / whitelist) are only enforced by a Zscaler integration (policies on the ranges). Anywhere else the range is just an address: the device runs captive detection and is held by the controller or firewall ("Nobody honours the VIP ticket"). Blacklist = silent drop (no OFFER, no NAK). A static IP skips DHCP and does not re-contact the controller: with Zscaler and no DHCP snooping it is a full bypass (warning end card, outcome `internet_bypass`); without Zscaler it only restores connectivity and the captive journey resumes; with DHCP snooping / IP source guard the unlearned address is dropped (`static_ip_dropped`) — the fix is on the customer's network. Quarantine leases are renewed forever, so zombies can exhaust the pool.
 
-**iOS.** Captive detection by probe (captive.apple.com) or, with option 114, by CPI (`captive:true` opens the CNA; CPI requests carry no cookie or MAC, the token in the option-114 URL identifies the device). The CNA "Done" button leaves an HTTPS black hole (only a plain http:// site escapes; SSL-decrypting firewalls are the noted exception). Leaving the CNA for an MFA app, an SMS notification or mail drops the SSID (SMS: typing the code is fine, tapping the notification loses the CNA; email is painful; MFA app is lost). Passkeys (Face ID) are unsupported in the CNA. **Returning iPhone** after a CPI-based CNA bypass: iOS remembers the network as not captive, runs no probe and never calls the CPI again → stuck zombie (`stale_captive_state`); only exists when option 114 is in play.
+**iOS.** Captive detection by probe (captive.apple.com) or, with option 114, by CPI (`captive:true` opens the CNA; CPI requests carry no cookie: the option-114 URL itself, with the MAC and IP written in it, identifies the device). The CNA "Done" button leaves an HTTPS black hole (only a plain http:// site escapes; SSL-decrypting firewalls are the noted exception). Leaving the CNA for an MFA app, an SMS notification or mail drops the SSID (SMS: typing the code is fine, tapping the notification loses the CNA; email is painful; MFA app is lost). Passkeys (Face ID) are unsupported in the CNA. **Returning iPhone** after a CPI-based CNA bypass: iOS remembers the network as not captive, runs no probe and never calls the CPI again → stuck zombie (`stale_captive_state`); only exists when option 114 is in play.
 
 **Android.** The sign-in app closes itself on `captive:false`; switching apps keeps the Wi-Fi. Passkeys assumed unsupported in the sign-in app (to confirm).
 
@@ -155,5 +156,5 @@ Engineering, needed before agents rely on it:
 - Light theme only.
 - The cloud is Phyre Wall's head, not a sign over the door.
 - "Son of a switch" only when the bypass is real.
-- Landing/success page not drawn: the wristband is the proof.
+- Landing/success page not drawn: the badge is the proof.
 - Firewall vendors other than Zscaler, Netskope and FortiGate set aside for now.

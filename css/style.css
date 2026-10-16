@@ -46,6 +46,9 @@ h1{font-family:var(--font-sfx);font-weight:400;font-size:46px;line-height:.95;le
 .foot{display:flex;flex:1 0 auto;flex-direction:column;gap:6px;align-items:flex-start;padding:10px 11px;border-top:1.5px solid var(--ink);background:var(--foot-bg)}
 .tag{flex:none;font-size:11px;font-weight:500;color:var(--ink);background:var(--surface);border:1px solid var(--line);
   border-radius:6px;padding:3px 7px;white-space:nowrap}
+.tag a{color:inherit;text-decoration:underline dotted;text-decoration-thickness:1px;text-underline-offset:2px}
+.tag a:hover{color:var(--c-dave);text-decoration-style:solid}
+.tag a:focus-visible{outline:2px solid var(--c-dave);outline-offset:1px;border-radius:2px}
 .note{font-size:12px;color:var(--ink-2);line-height:1.35}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner{transform-box:fill-box;transform-origin:center;animation:spin 1s linear infinite}
