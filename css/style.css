@@ -58,8 +58,8 @@ h1{font-family:var(--font-sfx);font-weight:400;font-size:46px;line-height:.95;le
   .top h1{grid-area:1/1}
   .top .tagline{grid-area:2/1;margin:0}
   .top .views{grid-area:1/2/3/3;align-self:start;justify-content:flex-end;margin:6px 0 0;position:relative}
-  /* out of the tab row, so the tabs don't move when it appears; it sits on the tagline line */
-  .top .widebtn{position:absolute;right:0;top:calc(100% + 12px);margin:0}
+  /* out of the tab row, so the tabs don't move when the tool buttons appear; they sit on the tagline line */
+  .top .tools{position:absolute;right:0;top:calc(100% + 12px);margin:0}
 }
 .viewtab{font-family:var(--font-sans);font-size:14px;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
 .viewtab[aria-selected="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
@@ -101,8 +101,9 @@ body.wide .seqinner,body.wide .seqheadin{min-width:0}
 .trunkend{padding-left:0}
 .readbtn{margin:8px 0 0 28px;font-family:var(--font-sans);font-size:13px;color:var(--ink);background:var(--surface);border:1.5px solid var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer}
 .readbtn:hover{background:var(--ink);color:var(--surface)}
-.widebtn{margin-left:auto;font-family:var(--font-sans);font-size:13px;color:var(--ink);background:var(--surface);border:1.5px dashed var(--ink-2);border-radius:999px;padding:5px 12px;cursor:pointer}
-.widebtn[aria-pressed="true"]{border-style:solid;border-color:var(--ink);background:var(--ink);color:var(--surface)}
+.tools{margin-left:auto;display:flex;gap:6px}
+.toolbtn{font-family:var(--font-sans);font-size:13px;color:var(--ink);background:var(--surface);border:1.5px dashed var(--ink-2);border-radius:999px;padding:5px 12px;cursor:pointer}
+.toolbtn[aria-pressed="true"]{border-style:solid;border-color:var(--ink);background:var(--ink);color:var(--surface)}
 body.wide .wrap{max-width:none}
 .wsel{position:relative;display:inline-flex;max-width:100%}
 .wselect{appearance:none;-webkit-appearance:none;max-width:100%;font-family:var(--font-comic);font-size:16px;line-height:1.2;color:var(--ink);background:var(--surface);border:1.5px dashed var(--ink);border-radius:14px;padding:4px 30px 4px 11px;cursor:pointer;text-overflow:ellipsis}

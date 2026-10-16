@@ -12,8 +12,9 @@ const html=fs.readFileSync(file,"utf8");
 // the page's classic scripts, in page order, each run as its own script in one shared context (as in a browser)
 const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>nodePath.join(nodePath.dirname(file),m[1]));
 const els={};function el(id){return els[id]||(els[id]={id,hidden:false,innerHTML:"",value:"",setAttribute(){}});}
+// the stubbed body reports the "crit" class, so the sequence diagram is rendered with its criteria shown (its fuller variant)
 const ctx=vm.createContext({console,URLSearchParams,
-  document:{body:{classList:{remove(){},toggle(){return true},contains(){return false}}},getElementById:el,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}},
+  document:{body:{classList:{remove(){},toggle(){return true},contains(c){return c==="crit"}}},getElementById:el,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}},
   window:{addEventListener(){},scrollBy(){},scrollTo(){}},location:{hash:"",pathname:"/",search:"",href:"https://x/y"},history:{replaceState(){}}});
 for(const f of scripts) vm.runInContext(fs.readFileSync(f,"utf8"),ctx,{filename:f});
 const T=vm.runInContext(`({NN:N,P:path,FP:fullPath,CC:CHOICES,DD:DEF,rc:renderComic,rs:renderSeq,rd:renderDecision,set:s=>{STATE=s},L:layout,norm:normalize,opts:optsFor})`,ctx);

@@ -8,10 +8,15 @@ function readHash(){
   normalize(STATE);
   let v=h.get("view"); if(v==="branches") v="decision";
   VIEW=["comic","sequence","decision","criteria"].includes(v)?v:"comic";
+  // view toggles, kept only in the views that show their button
+  document.body.classList.toggle("wide",h.get("fullwidth")==="1"&&(VIEW==="sequence"||VIEW==="decision"));
+  document.body.classList.toggle("crit",h.get("showcriteria")==="1"&&VIEW==="sequence");
 }
 function writeHash(){
   const h=new URLSearchParams();
   if(VIEW!=="comic") h.set("view",VIEW);
+  if(document.body.classList.contains("wide")&&(VIEW==="sequence"||VIEW==="decision")) h.set("fullwidth","1");
+  if(document.body.classList.contains("crit")&&VIEW==="sequence") h.set("showcriteria","1");
   for(const k in CHOICES) if(STATE[k]!==DEF[k]) h.set(k,STATE[k]);
   const s=h.toString();
   try{ history.replaceState(null,"",s?"#"+s:location.pathname+location.search); }catch(e){}
@@ -20,7 +25,8 @@ function writeHash(){
 function render(anchorKey,oldTop){
   document.querySelectorAll(".viewtab").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===VIEW));
   ["comic","sequence","decision","criteria"].forEach(v=>document.getElementById(v).hidden=(v!==VIEW));
-  const wbtn=document.getElementById("widebtn"); if(wbtn){ const w=VIEW==="decision"||VIEW==="sequence"; wbtn.hidden=!w; if(!w){ document.body.classList.remove("wide"); wbtn.setAttribute("aria-pressed","false"); } }
+  const wbtn=document.getElementById("widebtn"); if(wbtn){ const w=VIEW==="decision"||VIEW==="sequence"; wbtn.hidden=!w; if(!w) document.body.classList.remove("wide"); wbtn.setAttribute("aria-pressed",document.body.classList.contains("wide")); }
+  const cbtn=document.getElementById("critbtn"); if(cbtn){ const c=VIEW==="sequence"; cbtn.hidden=!c; if(!c) document.body.classList.remove("crit"); cbtn.setAttribute("aria-pressed",document.body.classList.contains("crit")); }
   if(VIEW==="comic") renderComic(); else if(VIEW==="sequence") renderSeq(); else if(VIEW==="decision") renderDecision(); else renderCriteria();
   if(anchorKey!=null && oldTop!=null && VIEW==="comic"){
     const el=document.querySelector(`#comic [data-choice="${anchorKey}"]`);
@@ -40,7 +46,8 @@ function choose(opt){
 }
 document.addEventListener("click",e=>{
   const opt=e.target.closest(".wopt"); if(opt){ choose(opt); return; }
-  const wb=e.target.closest(".widebtn"); if(wb){ const on=document.body.classList.toggle("wide"); wb.setAttribute("aria-pressed",on); if(VIEW==="sequence"){ const wy=window.scrollY; render(); window.scrollTo(window.scrollX,wy); } return; }
+  const cb=e.target.closest(".critbtn"); if(cb){ const on=document.body.classList.toggle("crit"); cb.setAttribute("aria-pressed",on); writeHash(); const wy=window.scrollY; render(); window.scrollTo(window.scrollX,wy); return; }
+  const wb=e.target.closest(".widebtn"); if(wb){ const on=document.body.classList.toggle("wide"); wb.setAttribute("aria-pressed",on); writeHash(); if(VIEW==="sequence"){ const wy=window.scrollY; render(); window.scrollTo(window.scrollX,wy); } return; }
   const tab=e.target.closest(".viewtab"); if(tab){ VIEW=tab.dataset.view; writeHash(); render(); window.scrollTo(0,0); return; }
   if(e.target.closest("#critapply")){ applyCriteria(); return; }
   if(e.target.closest("#critreset")){ renderCriteria({ok:true,msg:"Reloaded."}); return; }

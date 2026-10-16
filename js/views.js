@@ -82,11 +82,11 @@ function renderSeq(){
   const wide=document.body.classList.contains("wide"), host=document.getElementById("sequence");
   const avail=wide&&host&&host.clientWidth?host.clientWidth-4:0;
   LGAP=Math.max(108,Math.floor((avail-120)/(LANES.length-1))||108); SW=120+(LANES.length-1)*LGAP;
-  const ids=path(STATE), rowH=34;
+  const ids=path(STATE), rowH=34, crit=document.body.classList.contains("crit"); // messages only, unless "Show criteria" adds the alt frames, labels and choice chips
   let y=14, body="";
   for(const id of ids){
     const p=N[id], seq=V(p.seq,STATE);
-    if(hasChoice(id,STATE)){
+    if(crit&&hasChoice(id,STATE)){
       const c=CHOICES[p.choice], top=y; y+=8;
       let hx=58, chips="", line=0;
       const lab=`[${c.tq}]`;

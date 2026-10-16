@@ -50,7 +50,7 @@ The JS is four classic scripts (not ES modules) sharing one global scope, loaded
 - **`normalize(state)`** rewrites impossible combinations after any change (vendor ↔ enforcement, Meraki/Mist RADIUS-optional, FortiGate-only modes, etc.).
 - **`path(state)`** / **`fullPath(state)`** — the panel ids / all node ids of the current story.
 - **Renderers** (`views.js`): `renderComic`, `renderSeq`, `renderDecision` (auto-layout flowchart, `layout()`), `renderCriteria` (YAML in/out, `CRIT` lists the criteria in YAML order, `derived(state)` computes the read-only block).
-- **State** (`main.js`) lives in the URL hash: only non-default values plus `view=…`. Old links keep working as long as criteria keys and values are not renamed; links using values renamed since publication are rewritten by `legacyHash` (`graph.js`), which `readHash` applies (see §9 about stable ids).
+- **State** (`main.js`) lives in the URL hash: only non-default values plus `view=…`, and `fullwidth=1` / `showcriteria=1` when those toggles are on in a view that shows them (dropped when switching to a view without them). Old links keep working as long as criteria keys and values are not renamed; links using values renamed since publication are rewritten by `legacyHash` (`graph.js`), which `readHash` applies (see §9 about stable ids).
 
 Helpers worth knowing: `FULL(text)` expands first names to full names in titles, `NB(text)` makes composite names non-breaking, `cloud(s)`, `fwL(s)`, `greetK(s)` (who guards the door: `troller` or `phyre`), `roleCases(...)`.
 
@@ -94,8 +94,8 @@ Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it 
 ## 7. UI and format rules
 
 - Scrolling comic, two panels per row. Panel = numbered title (dropdown with optgroups when a choice applies; menu only shown if more than one option applies), scene SVG (full-bleed interior, floor edge to edge, names under the floor), footer.
-- Header: on desktop (≥ 1025 px) the view tabs sit right of the title, with "Full width" under them on the tagline line (out of the tab row, so the tabs never move); on tablets and phones the tabs go below the tagline.
-- Tabs: Comic / Sequence diagram (technical participant names, coloured lanes, sticky header synced horizontally, `alt` frames with clickable chips, red end markers, "Full width" button) / Decision diagram (auto-layout flowchart; diamonds with clickable value chips below; current path in bold; "Full width") / Criteria (editable YAML, validation, Apply or Ctrl+Enter, derived block, share link).
+- Header: on desktop (≥ 1025 px) the view tabs sit right of the title, with the tool buttons ("Show criteria", "Full width") under them on the tagline line (out of the tab row, so the tabs never move); on tablets and phones the tabs go below the tagline.
+- Tabs: Comic / Sequence diagram (technical participant names, coloured lanes, sticky header synced horizontally, messages only by default; a "Show criteria" toggle, off by default, adds the `alt` frames with the criterion and its clickable choice chips; red end markers, "Full width" button) / Decision diagram (auto-layout flowchart; diamonds with clickable value chips below; current path in bold; "Full width") / Criteria (editable YAML, validation, Apply or Ctrl+Enter, derived block, share link).
 - Every control that changes a criterion goes through the same state → `normalize` → re-render path. Never special-case a view.
 
 ## 8. Technical truths the graph encodes
