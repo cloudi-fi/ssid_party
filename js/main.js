@@ -80,4 +80,7 @@ document.addEventListener("change",e=>{
   const again=document.getElementById("wi-"+key); if(again) again.focus({preventScroll:true});
 });
 window.addEventListener("hashchange",()=>{ readHash(); render(); });
+// the sequence diagram fills the available width: lay it out again when the window is resized
+let resizeTimer=null;
+window.addEventListener("resize",()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{ if(VIEW==="sequence"){ const wy=window.scrollY; renderSeq(); window.scrollTo(window.scrollX,wy); } },150); });
 readHash(); render();

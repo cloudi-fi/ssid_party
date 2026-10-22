@@ -18,9 +18,13 @@ const CHOICES={
     {v:"ldap",label:"is the customer's LDAP directory",t:"LDAP",when:s=>secure(s)&&s.method==="ttls"},
     {v:"entraid",label:"is the customer's Entra ID, in the cloud",t:"Entra ID",when:s=>secure(s)&&s.method==="ttls"},
     {v:"guest",label:"keeps Cloudi-Fi guest accounts (made at the lobby)",t:"Cloudi-Fi guest account",when:s=>secure(s)&&s.method==="ttls"}]},
+  creds:{q:"What if Dave's credentials…",tq:"Credentials check",opts:[
+    {v:"ok",label:"check out",t:"valid",when:s=>secure(s)},
+    {v:"bad",label:"don't check out (wrong password, unknown CA, expired certificate)",t:"rejected",when:s=>secure(s)}]},
   nac:{q:"What if Ray…",tq:"NAC policy",opts:[
-    {v:"allow",label:"lets him in (NAC policy: allow)",t:"allow · VLAN 20",when:s=>secure(s)},
-    {v:"deny",label:"turns him away (NAC policy: deny)",t:"deny",when:s=>secure(s)}]},
+    {v:"allow",label:"lets him in (NAC policy: allow)",t:"allow · VLAN 20",when:s=>secure(s)&&s.creds==="ok"},
+    {v:"deny",label:"turns him away (NAC policy: deny)",t:"deny",when:s=>secure(s)&&s.creds==="ok"},
+    {v:"blacklist",label:"has Dave's device on the blacklist",t:"device blacklisted",when:s=>secure(s)&&s.creds==="ok"}]},
   dhcp:{q:"What if Dee…",tq:"DHCP lease",opts:[
     {v:"ok",label:"has a free address",t:"free address",group:"On-prem DHCP · plain lease, no MAC triage"},
     {v:"conflict",label:"remembers Dave, but his old IP is taken",t:"previous IP taken",group:"On-prem DHCP · plain lease, no MAC triage"},
@@ -45,12 +49,12 @@ const CHOICES={
     {v:"no",label:"taps Port Al's button",t:"portal button",when:s=>s.os!=="iot"},
     {v:"yes",label:"taps 'Done' instead",t:"taps 'Done'",when:s=>s.os!=="iot"}]},
   reg:{q:"What if Port Al…",tq:"Registration method",opts:[
-    {when:s=>s.os!=="iot",v:"sso",label:"offers SSO with Ida Pee",t:"SSO"},
-    {when:s=>s.os!=="iot",v:"mfa",label:"offers SSO with a second factor",t:"SSO + MFA app"},
-    {when:s=>s.os!=="iot",v:"passkey",label:"offers SSO with Face ID / Touch ID",t:"SSO + passkey (WebAuthn)"},
     {when:s=>s.os!=="iot",v:"form",label:"only asks for a form",t:"declarative form"},
     {when:s=>s.os!=="iot",v:"sms",label:"sends a code by SMS",t:"SMS OTP"},
-    {when:s=>s.os!=="iot",v:"email",label:"emails credentials",t:"credentials by email"}]},
+    {when:s=>s.os!=="iot",v:"email",label:"emails credentials",t:"credentials by email"},
+    {when:s=>s.os!=="iot",v:"sso",label:"offers SSO with Ida Pee",t:"SSO"},
+    {when:s=>s.os!=="iot",v:"mfa",label:"offers SSO with a second factor",t:"SSO + MFA app"},
+    {when:s=>s.os!=="iot",v:"passkey",label:"offers SSO with Face ID / Touch ID",t:"SSO + passkey (WebAuthn)"}]},
   smsexit:{q:"What if Dave…",tq:"SMS notification",opts:[
     {when:s=>s.os!=="iot",v:"type",label:"types the code right in the portal",t:"types code"},
     {when:s=>s.os!=="iot",v:"tap",label:"taps the SMS notification",t:"taps notification"}]},
@@ -105,7 +109,7 @@ function legacyHash(h){
     if(!i||i==="radius") h.set("integ","controllerMab"); else if(i==="fwLocal"||i==="fwBoth") h.set("integ",i+"Mab");
   } else if(i==="radius") h.set("integ","controllerMab");
 }
-const DEF={ssid:"open",os:"ios",method:"tls",idsrc:"ldap",nac:"allow",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"sso",smsexit:"type",browse:"stay"};
+const DEF={ssid:"open",os:"ios",method:"tls",idsrc:"ldap",creds:"ok",nac:"allow",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"form",smsexit:"type",browse:"stay"};
 const TITLES={
   os:{ios:"An iPhone rolls up to the club.",android:"An Android phone rolls up to the club.",iot:"An IP camera rolls up to the club."},
   radius:{unknown:s=>merakiMab(s)?"Ray lets him through anyway.":s.integ==="mabOnly"?"Ray doesn't know him — out.":"Ray says no.",known:"Ray already knows Dave."},
@@ -114,7 +118,8 @@ const TITLES={
   dhcp:{ok:"Dee hands him an address.",conflict:"Dee remembers him — new address.",exhausted:"Dee is out of addresses.",quarantine:"Dee, from the cloud, puts him in quarantine.",whitelist:"Dee, from the cloud, has him on the whitelist.",blacklist:"Dee, from the cloud, has him on the blacklist.",zombies:"Dee, from the cloud, is out of addresses — zombies."},
   hack:{no:"Dave keeps asking, forever.",yes:"Dave picks his own address."},
   method:{tls:"Dave shows his own certificate.",ttls:"Dave whispers his password."},
-  nac:{allow:"Ray says yes.",deny:"Ray says no."},
+  nac:{allow:"Ray says yes.",deny:"Ray says no.",blacklist:"Ray knows that phone."},
+  creds:{ok:s=>s.method==="ttls"?"Ida vouches for him.":"Signed by his company.",bad:s=>s.method==="ttls"?"Ida doesn't buy it.":"Signed by a stranger."},
   idsrc:{ldap:"Ida Pee checks her directory.",entraid:"Ida Pee answers from the cloud.",guest:"Ida Pee checks the guest accounts."},
   visit:{first:"Dave checks the kiosk.",returning:"Dave doesn't bother checking."},
   snooping:{no:s=>`${greetK(s)==="phyre"?"Phyre Wall":"Conn Troller"} doesn't notice the new address.`,yes:s=>`${greetK(s)==="phyre"?"Phyre Wall":"Conn Troller"} drops the unlearned address.`},
@@ -627,9 +632,34 @@ N.x3={narr:"Ray shows his badge first.",loc:"at the members' door",bg:"door-insi
 N.dMethod={dec:"EAP method?",next:{k:"method",map:{tls:"x4t",ttls:"x4p"}}};
 N.x4t={choice:"method",narr:"Dave shows his own certificate.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TLS · client certificate",
   note:"EAP-TLS: Dave shows a certificate too. His company's MDM installed it beforehand, or enrolled it over SCEP. RADIUS accepts it only if it chains up to a CA this customer registered: its own, or one Cloudi-Fi runs for it.",
-  a:doorCrew("And here's mine.",null,"Signed by your company. Good."),
-  seq:[{f:"dave",t:"troller",l:"EAP-Response (TLS · client certificate)"},{f:"troller",t:"ray",l:"Access-Request (TLS · client certificate)"},{f:"ray",t:"ray",l:"certificate chain → customer's CA"}],next:"dNac"};
-N.dNac={dec:"NAC policy?",next:{k:"nac",map:{allow:"x5",deny:"x5r"}}};
+  a:doorCrew("And here's mine.",null,"Let me see who signed it."),
+  seq:[{f:"dave",t:"troller",l:"EAP-Response (TLS · client certificate)"},{f:"troller",t:"ray",l:"Access-Request (TLS · client certificate)"}],next:"dCredsT"};
+N.dNac={dec:"NAC policy?",next:{k:"nac",map:{allow:"x5",deny:"x5r",blacklist:"x5b"}}};
+// the verdict on the credentials, before the NAC policy: Ray reads the certificate, or hears Ida's answer on the phone
+N.dCredsT={dec:"Certificate valid?",next:{k:"creds",map:{ok:"x4tv",bad:"x4tx"}}};
+N.dCredsP={dec:"Password valid?",next:{k:"creds",map:{ok:"x4pv",bad:"x4px"}}};
+const IDA_OK={ldap:"bind OK",entraid:"token · group membership",guest:"guest account valid"};
+const IDA_KO={ldap:"bind failed (invalid credentials)",entraid:"sign-in refused",guest:"no such guest account / wrong password"};
+N.x4tv={choice:"creds",narr:"Signed by his company.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TLS · certificate verified",
+  note:"The certificate chains up to a CA this customer registered, its own or one Cloudi-Fi runs for it, and it hasn't expired: Dave is who he says he is.",
+  a:doorCrew(null,null,"Signed by your company. Good."),
+  seq:[{f:"ray",t:"ray",l:"certificate chain → customer's CA · valid"}],next:"dNac"};
+N.x4tx={choice:"creds",narr:"Signed by a stranger.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TLS · certificate rejected",
+  note:"The certificate wasn't issued by a CA this customer registered, or it has expired: RADIUS answers Access-Reject before any policy is looked at.",
+  a:doorCrew(null,null,"Signed by... nobody I know. No."),
+  seq:[{f:"ray",t:"ray",l:"certificate chain → unknown CA or expired"},{f:"ray",t:"troller",l:"Access-Reject (EAP-Failure)",r:1}],next:"x6r"};
+N.x4pv={choice:"creds",narr:"Ida vouches for him.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TTLS · password verified",
+  note:"The identity source confirms the login and password: Dave is who he says he is.",
+  a:s=>doorCrew(null,null,"Ida says you're good.").map(x=>x.k==="ray"?{...x,phone:true}:x),
+  seq:s=>[{f:"soso",t:"ray",l:IDA_OK[s.idsrc],r:1}],next:"dNac"};
+N.x4px={choice:"creds",narr:"Ida doesn't buy it.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TTLS · password rejected",
+  note:"The identity source refuses the login and password: RADIUS answers Access-Reject before any policy is looked at.",
+  a:s=>doorCrew(null,null,"Ida says wrong password. No.").map(x=>x.k==="ray"?{...x,phone:true}:x),
+  seq:s=>[{f:"soso",t:"ray",l:IDA_KO[s.idsrc],r:1},{f:"ray",t:"troller",l:"Access-Reject (EAP-Failure)",r:1}],next:"x6r"};
+N.x5b={choice:"nac",narr:"Ray knows that phone.",loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Reject (device blacklisted)",
+  note:"Identity and policy check out, but this device is blacklisted (or in quarantine) in Cloudi-Fi's device list: RADIUS rejects it anyway.",
+  a:doorCrew(null,null,"That phone is blacklisted. No."),
+  seq:[{f:"ray",t:"ray",l:"device security profile → blacklist"},{f:"ray",t:"troller",l:"Access-Reject (EAP-Failure)",r:1}],next:"x6r"};
 N.x4p={choice:"method",narr:"Dave whispers his password.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TTLS · password in the tunnel",
   note:"EAP-TTLS: only RADIUS shows a certificate. Inside the encrypted tunnel, the device sends a login and password, and RADIUS calls the identity source to check them.",
   a:s=>doorCrew("Psst: dave / hunter2.",null,"Hold on. Ida? One of yours?").map(x=>x.k==="ray"?{...x,phone:true}:x),
@@ -639,20 +669,26 @@ N.dIdsrc={dec:"Identity source?",next:{k:"idsrc",map:{ldap:"x4l",entraid:"x4e",g
 const idaCall=line=>[{k:"soso",x:330,b:line,al:"right",phone:true}];
 N.x4l={choice:"idsrc",narr:"Ida Pee checks her directory.",loc:"id booth",bg:"booth",tag:"LDAP · search and bind",
   note:"RADIUS checks the login and password against the customer's LDAP directory, often Active Directory: it looks the user up, then binds with the password.",
-  a:idaCall("dave / hunter2? He's in my directory."),
-  seq:[{f:"ray",t:"soso",l:"LDAP search + bind (login, password)"},{f:"soso",t:"ray",l:"bind OK",r:1}],next:"dNac"};
+  a:idaCall("dave / hunter2? Let me look him up."),
+  seq:[{f:"ray",t:"soso",l:"LDAP search + bind (login, password)"}],next:"dCredsP"};
 N.x4e={choice:"idsrc",narr:"Ida Pee answers from the cloud.",loc:"id booth",bg:"booth",tag:"Entra ID · sign-in check",
   note:"RADIUS checks the login and password with the customer's Entra ID tenant, in the cloud, and reads the user's groups for the NAC policy.",
-  a:idaCall("dave / hunter2? Signed in. Groups attached."),
-  seq:[{f:"ray",t:"soso",l:"sign-in (login, password)"},{f:"soso",t:"ray",l:"token · group membership",r:1}],next:"dNac"};
+  a:idaCall("dave / hunter2? Checking his sign-in."),
+  seq:[{f:"ray",t:"soso",l:"sign-in (login, password)"}],next:"dCredsP"};
 N.x4g={choice:"idsrc",narr:"Ida Pee checks the guest accounts.",loc:"id booth",bg:"booth",tag:"Guest account · login check",
   note:"The login is a Cloudi-Fi guest account, created beforehand at the lobby: RADIUS checks it against Cloudi-Fi's guest accounts.",
-  a:idaCall("dave / hunter2? The lobby made it. Valid."),
-  seq:[{f:"ray",t:"soso",l:"guest account check (login, password)"},{f:"soso",t:"ray",l:"valid",r:1}],next:"dNac"};
-N.x5={choice:"nac",narr:"Ray says yes.",loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Accept (VLAN)",
-  note:"RADIUS applies the customer's NAC policy (allow or deny, and which VLAN), then sends the accept along with the session keys. The controller tells the device it's in.",
+  a:idaCall("dave / hunter2? Let me find his guest account."),
+  seq:[{f:"ray",t:"soso",l:"guest account check (login, password)"}],next:"dCredsP"};
+// what the accept carries, per controller vendor (Mist gets the generic answer; Cisco: the VLAN only)
+const ROLE_ATTR={aruba:"Aruba-User-Role",meraki:"Filter-Id",mist:"Filter-Id","ruckus-ap":"Ruckus-User-Groups","ruckus-smartzone":"Ruckus-User-Groups",fortigate:"Fortinet-Group-Name"};
+const ROLE_NOTE={aruba:"On an Aruba, the role arrives as Aruba-User-Role = cloudifi-Members.",meraki:"On a Meraki, Filter-Id = cloudifi-Members names the group policy to apply.",
+  mist:"Mist gets the generic answer: Filter-Id (and Aruba-User-Role) = cloudifi-Members.","ruckus-ap":"On a Ruckus, the role arrives as Ruckus-User-Groups = cloudifi-Members.",
+  "ruckus-smartzone":"On a Ruckus, the role arrives as Ruckus-User-Groups = cloudifi-Members.",fortigate:"On a FortiGate, the group arrives as Fortinet-Group-Name = cloudifi-Members."};
+N.x5={choice:"nac",narr:"Ray says yes.",loc:"at the members' door",bg:"door-inside",
+  tag:s=>ROLE_ATTR[s.vendor]?`RADIUS · Access-Accept (${ROLE_ATTR[s.vendor]} + VLAN)`:"RADIUS · Access-Accept (VLAN)",tagAll:"RADIUS · Access-Accept (role / VLAN)",
+  note:s=>"RADIUS applies the customer's NAC policy (allow or deny, the profile and the VLAN), then sends the accept along with the session keys. "+(ROLE_NOTE[s.vendor]||`On a ${VNAME[s.vendor]}, only the VLAN is sent.`)+" The VLAN comes as Tunnel-Private-Group-Id = 20.",
   a:doorCrew(null,null,"Policy says yes. VLAN 20."),
-  seq:[{f:"ray",t:"ray",l:"NAC policy → allow · VLAN 20"},{f:"ray",t:"troller",l:"Access-Accept (EAP-Success, keys, VLAN 20)",r:1},{f:"troller",t:"dave",l:"EAP-Success",r:1}],next:"x6"};
+  seq:s=>[{f:"ray",t:"ray",l:"NAC policy → allow · profile Members · VLAN 20"},{f:"ray",t:"troller",l:`Access-Accept (EAP-Success, keys, ${ROLE_ATTR[s.vendor]?ROLE_ATTR[s.vendor]+" = cloudifi-Members, ":""}VLAN 20)`,r:1},{f:"troller",t:"dave",l:"EAP-Success",r:1}],next:"x6"};
 N.x5r={choice:"nac",narr:"Ray says no.",loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Reject",
   note:"The credentials check out, but the customer's NAC policy doesn't let this user in here (location, SSID, profile...): RADIUS answers Access-Reject.",
   a:doorCrew(null,null,"Policy says no. Not tonight."),
@@ -684,6 +720,9 @@ function nextOf(id,s){
 }
 function fullPath(s){ const p=[]; let id="n1"; while(id){ p.push(id); id=nextOf(id,s); } return p; }
 const path=s=>fullPath(s).filter(id=>!N[id].dec);
+// a step's tag in a given story; graphTag is the one shown in the graph of every branch
+const tagOf=(id,s)=>V(N[id].tag,s);
+const graphTag=id=>N[id].tagAll||N[id].tag;
 const hasChoice=(id,s)=>N[id].choice && (!N[id].choiceIf||N[id].choiceIf(s)) && optsFor(N[id].choice,s).length>1;
 const optsFor=(key,s)=>CHOICES[key].opts.filter(o=>!o.when||o.when(s));
 function normalize(st){

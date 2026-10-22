@@ -44,7 +44,7 @@ function renderComic(){
     return `<figure class="panel" id="p-${id}" ${ch?`data-choice="${p.choice}"`:""}>
       <div class="cap"><span class="pnum">${i+1}</span>${ch?titleSel(p.choice):`<span class="narr">${esc(NB(FULL(V(p.narr,STATE))))}</span>`}<span class="loc">${esc(p.loc)}</span></div>
       ${panelSVG(id,STATE)}
-      <div class="foot"><span class="tag">${tagHTML(p.tag)}</span><span class="note">${esc(NB(V(p.note,STATE)))}</span></div>
+      <div class="foot"><span class="tag">${tagHTML(tagOf(id,STATE))}</span><span class="note">${esc(NB(V(p.note,STATE)))}</span></div>
     </figure>`; }).join("");
   const lastId=ids[ids.length-1];
   if(N[lastId].end) h+=`<div class="endcard"><b>The end.</b> Dave never reaches the dancefloor with this configuration.</div>`;
@@ -68,7 +68,7 @@ function msgSVG(m,y){
   if(fi===ti){
     const x=LX(fi);
     s+=`<path d="M${x} ${y-8} h26 v14 h-22" fill="none" stroke="${col}" stroke-width="1.8"/><polygon points="${x+2},${y+6} ${x+10},${y+2} ${x+10},${y+10}" fill="${col}"/>`;
-    const tx=Math.min(x+32,SW-lw-4);
+    const tx=x+32+lw<=SW-4?x+32:Math.max(8,x-lw-4); // label right of the loop, or left of the lane when the right edge is too close
     s+=`<rect x="${tx-4}" y="${y-8}" width="${lw}" height="16" rx="3" fill="var(--surface)"/><text x="${tx+2}" y="${y+4}" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">${esc(m.l)}</text>`;
   } else {
     const x1=LX(fi), x2=LX(ti), d=x2>x1?1:-1, xe=x2-d*2;
@@ -88,6 +88,7 @@ function laneLogo(k,s){
   if(k==="troller") return `img/vendors/${VENDOR_LOGO[s.vendor]}.svg`;
   if(k==="phyre"&&(cloud(s)||fwL(s))) return `img/vendors/${FW_LOGO[s.fwvendor]}.svg`;
   if(k==="soso"&&idSrc(s)) return {ldap:"img/vendors/ldap.png",entraid:"img/vendors/entra-id.svg"}[idSrc(s)]||null;
+  if(k==="soso"&&!secure(s)) return "img/vendors/entra-id.svg"; // the SSO IdP: most often Entra ID (or Okta)
   return null;
 }
 // the lanes of a sequence diagram: every component with "Show criteria", otherwise only those the story's messages involve
@@ -97,8 +98,8 @@ function seqLanes(ids,s,crit){
 }
 const SEQ_HACK="Internet access · identity never verified (DHCP blacklist bypassed)";
 function renderSeq(){
-  const wide=document.body.classList.contains("wide"), host=document.getElementById("sequence");
-  const avail=wide&&host&&host.clientWidth?host.clientWidth-4:0;
+  const host=document.getElementById("sequence");
+  const avail=host&&host.clientWidth?host.clientWidth-4:0; // the lanes spread over the available width (page or full width)
   const ids=path(STATE), rowH=34, crit=document.body.classList.contains("crit"); // messages only, unless "Show criteria" adds the alt frames, labels and choice chips
   SLANES=seqLanes(ids,STATE,crit);
   LGAP=Math.max(108,Math.floor((avail-120)/(SLANES.length-1))||108); SW=120+(SLANES.length-1)*LGAP;
@@ -179,7 +180,7 @@ function layout(){
   for(const id in col){
     const x=DPAD+DCW/2+col[id]*DCW, top=20+row[id]*DROW;
     if(N[id].dec) box[id]={x,top,h:44,bot:top+44,dia:1};
-    else { const lines=wrap(N[id].tag,26), h=lines.length*14+14; box[id]={x,top,h,bot:top+h,lines}; }
+    else { const lines=wrap(graphTag(id),26), h=lines.length*14+14; box[id]={x,top,h,bot:top+h,lines}; }
   }
   return LAYOUT={E,box,row,col,ncol,nrow,W:DPAD*2+ncol*DCW,H:40+nrow*DROW};
 }
@@ -201,7 +202,7 @@ function renderPath(){
   const ids=path(STATE), gap=26, pad=16, w=DBW+pad*2, x=w/2;
   let y=pad, s="";
   ids.forEach((id,i)=>{
-    const lines=wrap(N[id].tag,26), h=lines.length*14+14, stroke=CH[stepActor(id,STATE)].color;
+    const lines=wrap(tagOf(id,STATE),26), h=lines.length*14+14, stroke=CH[stepActor(id,STATE)].color;
     if(i) s+=`<line x1="${x}" y1="${y-gap}" x2="${x}" y2="${y-7}" stroke="var(--ink)" stroke-width="2.2"/><polygon points="${x},${y} ${x-5},${y-7} ${x+5},${y-7}" fill="var(--ink)"/>`;
     s+=`<rect x="${x-DBW/2}" y="${y}" width="${DBW}" height="${h}" rx="6" fill="var(--surface)" stroke="${stroke}" stroke-width="2"/>`+stepText(id,lines,x,y);
     y+=h+gap;
@@ -287,7 +288,7 @@ function seqMermaid(s,crit){
 function flowMermaid(s,crit,color){
   const fp=fullPath(s), ids=crit?Object.keys(N):path(s), out=["flowchart TD"];
   const E=crit?graphEdges():ids.slice(1).map((t,i)=>({f:ids[i],t}));
-  for(const id of ids) out.push(N[id].dec?`  ${id}{"${mmd(N[id].dec)}"}`:`  ${id}["${mmd(stepMark(id)+N[id].tag)}"]`);
+  for(const id of ids) out.push(N[id].dec?`  ${id}{"${mmd(N[id].dec)}"}`:`  ${id}["${mmd(stepMark(id)+(crit?graphTag(id):tagOf(id,s)))}"]`);
   for(const e of E) out.push(`  ${e.f} -->${e.l?`|"${mmd(e.l)}"|`:""} ${e.t}`);
   if(color){
     const by={}; for(const id of ids) if(!N[id].dec) (by[stepActor(id,s)]=by[stepActor(id,s)]||[]).push(id);
@@ -320,6 +321,7 @@ const CRIT=[
   {name:"ssid",key:"ssid",ctx:"user"},
   {name:"device_os",key:"os",ctx:"user"},
   {name:"eap_method",key:"method",ctx:"user"},
+  {name:"credentials",key:"creds",ctx:"user"},
   {name:"mab",key:"radius",ctx:"user"},
   {name:"static_ip_bypass",key:"hack",ctx:"user"},
   {name:"visit",key:"visit",ctx:"user"},

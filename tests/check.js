@@ -49,7 +49,8 @@ for(const s of uniq.values()){
 }
 const unreached=Object.keys(NN).filter(x=>!visited.has(x)); if(unreached.length){issues++;console.log("unreached",unreached);}
 // every reference in refs.js must match at least one panel tag
-const allTags=Object.values(NN).filter(n=>!n.dec).map(n=>n.tag), deadRefs=T.REFS.filter(r=>!allTags.some(tg=>r[0].test(tg)));
+// a tag that depends on the state (the vendor) is checked in its graph form and for every vendor
+const allTags=Object.values(NN).filter(n=>!n.dec).flatMap(n=>typeof n.tag==="function"?[n.tagAll,...CC.vendor.opts.map(o=>n.tag({...DD,vendor:o.v}))]:[n.tag]), deadRefs=T.REFS.filter(r=>!allTags.some(tg=>r[0].test(tg)));
 if(deadRefs.length){issues++;console.log("unused references",deadRefs.map(r=>String(r[0])));}
 const L=T.L(); const bx=Object.entries(L.box).map(([id,b])=>({id,x:b.x-86,y:b.top,w:172,h:b.h}));
 for(let i=0;i<bx.length;i++)for(let j=i+1;j<bx.length;j++)if(ov(bx[i],bx[j])){issues++;console.log("box overlap",bx[i].id,bx[j].id);}

@@ -40,8 +40,8 @@ function nameLabel(cx,y,text,fill,logo){
     ? (logo.startsWith("emoji:") ? `<text x="${x0.toFixed(1)}" y="${y}" font-size="13">${logo.slice(6)}</text>` : `<image href="${logo}" x="${x0.toFixed(1)}" y="${y-LOGO/2-4.5}" width="${LOGO}" height="${LOGO}"/>`)+`<text x="${(x0+LOGO+LOGO_GAP).toFixed(1)}" y="${y}" ${t}>${text}</text>`
     : `<text x="${cx}" y="${y}" text-anchor="middle" ${t}>${text}</text>`)+`</g>`;
 }
-// a telephone handset held to the right ear (a phone call: Ray calling Ida Pee)
-function handset(cx,cy){ return `<g fill="var(--ink)"><rect x="${cx+17.5}" y="${cy-10}" width="5" height="22" rx="2.5"/><rect x="${cx+13}" y="${cy-12}" width="8" height="6" rx="2"/><rect x="${cx+13}" y="${cy+8}" width="8" height="6" rx="2"/></g>`; }
+// a phone call (Ray calling Ida Pee): a smartphone like Dave's, grey screen, held to the right ear, in the character's colour
+function handset(cx,cy){ return `<rect x="${cx+14}" y="${cy-10}" width="12" height="20" rx="3.5" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/><rect x="${cx+16.5}" y="${cy-7}" width="7" height="13" rx="1" fill="var(--ink-2)" opacity="0.45"/>`; }
 function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=null,antennas=false,cloudHead=false,zombie=false,ours=false,handset:call=false}={}){
   const c=CH[key], cy=CY;
   let mouth;
@@ -70,7 +70,8 @@ function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=n
   return `<g style="color:${c.color}">
     <line x1="${cx}" y1="${cy+16}" x2="${cx}" y2="${cy+54}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
     <line x1="${cx}" y1="${cy+26}" x2="${cx-18}" y2="${cy+40}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-    <line x1="${cx}" y1="${cy+26}" x2="${cx+(call?19:18)}" y2="${cy+(call?14:40)}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    ${call?`<path d="M${cx} ${cy+26} L${cx+31} ${cy+24} L${cx+24} ${cy+10}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`  // bent arm, elbow out, hand at the phone
+      :`<line x1="${cx}" y1="${cy+26}" x2="${cx+18}" y2="${cy+40}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>`}
     <line x1="${cx}" y1="${cy+54}" x2="${cx-14}" y2="${cy+82}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
     <line x1="${cx}" y1="${cy+54}" x2="${cx+14}" y2="${cy+82}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
     ${cloudHead
@@ -140,7 +141,7 @@ function rayDesk(cx,ours=false,call=false){
   let s=`<g>`;
   s+=`<g style="color:var(--c-ray)">`;
   s+=L(cx,cy+16,cx,214)+L(cx,214,cx-13,226)+L(cx,214,cx+13,226)+L(cx-13,226,cx-13,254)+L(cx+13,226,cx+13,254)+L(cx-13,254,cx-20,256)+L(cx+13,254,cx+20,256);
-  s+=L(cx,cy+26,cx-22,208)+(call?L(cx,cy+26,cx+19,cy+14):L(cx,cy+26,cx+9,208));
+  s+=L(cx,cy+26,cx-22,208)+(call?"":L(cx,cy+26,cx+9,208));
   s+=`</g>`;
   s+=`<rect x="${cx-66}" y="216" width="94" height="8" rx="1" ${SURF} ${II} stroke-width="1.3"/>`;
   s+=`<line x1="${cx-58}" y1="224" x2="${cx-58}" y2="${FLOOR}" ${II} stroke-width="1.3"/>`;
@@ -156,7 +157,8 @@ function rayDesk(cx,ours=false,call=false){
   s+=`<circle cx="${cx}" cy="${cy}" r="16" fill="var(--surface)" ${C} stroke-width="2.4"/>`;
   s+=`<rect x="${cx-10}" y="${cy-5}" width="9" height="5.5" rx="1.5" fill="var(--ink)"/><rect x="${cx+1}" y="${cy-5}" width="9" height="5.5" rx="1.5" fill="var(--ink)"/><line x1="${cx-1}" y1="${cy-3}" x2="${cx+1}" y2="${cy-3}" stroke="var(--ink)" stroke-width="1.5"/>`;
   s+=`<path d="M${cx-4} ${cy+5} q4 3.5 8 0" fill="none" stroke="var(--ink)" stroke-width="1.3" stroke-linecap="round"/>`;
-  s+=`</g>`+(call?handset(cx,cy):"");
+  // on the phone: the right arm is raised over the ledger, elbow out, hand at the phone's bottom
+  s+=(call?L(cx+2,cy+19,cx+31,cy+18)+L(cx+31,cy+18,cx+24,cy+10)+handset(cx,cy):"")+`</g>`;
   s+=nameLabel(cx,FLOOR+19,CH.ray.name,"var(--ink-2)",ours?CF_LOGO:null);
   return s+`</g>`;
 }
