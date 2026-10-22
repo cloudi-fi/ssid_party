@@ -81,10 +81,12 @@ document.addEventListener("change",e=>{
   const sel=e.target.closest&&e.target.closest("select.wselect"); if(!sel) return;
   if(sel.dataset.egg){ EGG[sel.dataset.egg]=sel.value; const wy=window.scrollY; render(); window.scrollTo(window.scrollX,wy); return; }
   const idx=panelIndex(sel), top=idx!=null?panelAt(idx).getBoundingClientRect().top:null, key=sel.getAttribute("data-k");
+  // give the focus back only to keyboard users: focusing a select on a phone opens it again
+  const kb=sel.matches(":focus-visible");
   // an entry of a panel's own menu carries the criteria it sets, as JSON
   if(sel.value.startsWith("{")) Object.assign(STATE,JSON.parse(sel.value)); else STATE[key]=sel.value;
   normalize(STATE); writeHash(); render(idx,top);
-  const again=idx!=null&&panelAt(idx)&&panelAt(idx).querySelector("select.wselect"); if(again) again.focus({preventScroll:true});
+  const again=kb&&idx!=null&&panelAt(idx)&&panelAt(idx).querySelector("select.wselect"); if(again) again.focus({preventScroll:true});
 });
 window.addEventListener("hashchange",()=>{ readHash(); render(); });
 // the sequence diagram fills the available width: lay it out again when the window is resized
