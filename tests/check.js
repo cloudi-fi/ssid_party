@@ -5,20 +5,21 @@
 //   loop / dangling (a story that neither ends nor reaches the dancefloor) / unreached nodes /
 //   "undefined" or NaN in any rendered view / speech-bubble overlaps or out-of-bounds in comic panels /
 //   name labels (with or without the Cloudi-Fi logo) overlapping or leaving the panel /
-//   a current option hidden from its title menu / box or chip collisions in the decision diagram.
+//   "undefined" or NaN or a character name in the Mermaid exports / a current option hidden from its title menu /
+//   box or chip collisions in the decision diagram.
 const fs=require("fs"), nodePath=require("path"), vm=require("vm");
 const file=process.argv[2]||"index.html";
 const html=fs.readFileSync(file,"utf8");
 // the page's classic scripts, in page order, each run as its own script in one shared context (as in a browser)
 const scripts=[...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m=>nodePath.join(nodePath.dirname(file),m[1]));
-const els={};function el(id){return els[id]||(els[id]={id,hidden:false,innerHTML:"",value:"",setAttribute(){}});}
+const els={};function el(id){return els[id]||(els[id]={id,hidden:false,innerHTML:"",value:"",textContent:"",setAttribute(){},classList:{toggle(){},add(){},remove(){},contains(){return false}}});}
 // the stubbed body reports the "crit" class while showCrit is true: diagrams are checked with and without their criteria
 let showCrit=true;
 const ctx=vm.createContext({console,URLSearchParams,
   document:{body:{classList:{remove(){},toggle(){return true},contains(c){return c==="crit"&&showCrit}}},getElementById:el,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}},
   window:{addEventListener(){},scrollBy(){},scrollTo(){}},location:{hash:"",pathname:"/",search:"",href:"https://x/y"},history:{replaceState(){}}});
 for(const f of scripts) vm.runInContext(fs.readFileSync(f,"utf8"),ctx,{filename:f});
-const T=vm.runInContext(`({NN:N,P:path,FP:fullPath,CC:CHOICES,DD:DEF,rc:renderComic,rs:renderSeq,rd:renderDecision,set:s=>{STATE=s},L:layout,norm:normalize,opts:optsFor,REFS})`,ctx);
+const T=vm.runInContext(`({NN:N,P:path,FP:fullPath,CC:CHOICES,DD:DEF,rc:renderComic,rs:renderSeq,rd:renderDecision,ms:seqMermaid,mf:flowMermaid,set:s=>{STATE=s},L:layout,norm:normalize,opts:optsFor,REFS})`,ctx);
 const {NN,P,FP,CC,DD,rc,rs,rd}=T;
 function rects(f,rx){return [...f.matchAll(new RegExp('<rect x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.]+)" height="([\\d.]+)" rx="'+rx+'"','g'))].map(m=>({x:+m[1],y:+m[2],w:+m[3],h:+m[4]}));}
 function ov(a,b){return a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;}
@@ -36,6 +37,9 @@ for(const s of uniq.values()){
   const key=P(s).join(","); if(stories.has(key)) continue; stories.add(key);
   T.set({...s}); showCrit=false; rs(); rd();
   for(const k of ["sequence","decision"]) if(/undefined|NaN/.test(els[k].innerHTML)){issues++;console.log("bad",k,"(no criteria)",JSON.stringify(s));}
+  for(const c of [false,true]){ const m=T.ms(s,c)+T.mf(s,c,k=>"#000");
+    if(/undefined|NaN/.test(m)){issues++;console.log("bad mermaid",c?"(criteria)":"(no criteria)",JSON.stringify(s));}
+    if(/\b(dave|troller|phyre|ray|dippy|chippy|porter|soso|ice|conn|dius|dee|ashcipee|cee|peahy|port al|ida|pee|wall)\b/i.test(m)){issues++;console.log("character name in mermaid",JSON.stringify(s));} }
   showCrit=true; rc(); rs(); rd();
   for(const k of ["comic","sequence","decision"]) if(/undefined|NaN/.test(els[k].innerHTML)){issues++;console.log("bad",k,JSON.stringify(s));}
   els.comic.innerHTML.split("<figure").slice(1).forEach((f,i)=>{const r=rects(f,13);for(let a=0;a<r.length;a++){if(r[a].x<4||r[a].x+r[a].w>436||r[a].y<4){issues++;console.log("oob",P(s)[i],JSON.stringify(s));}for(let b=a+1;b<r.length;b++)if(ov(r[a],r[b])){issues++;console.log("overlap",P(s)[i],JSON.stringify(s));}}});

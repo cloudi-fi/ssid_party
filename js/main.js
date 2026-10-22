@@ -27,6 +27,8 @@ function render(anchorKey,oldTop){
   ["comic","sequence","decision","criteria"].forEach(v=>document.getElementById(v).hidden=(v!==VIEW));
   const wbtn=document.getElementById("widebtn"); if(wbtn){ const w=VIEW==="decision"||VIEW==="sequence"; wbtn.hidden=!w; if(!w) document.body.classList.remove("wide"); wbtn.setAttribute("aria-pressed",document.body.classList.contains("wide")); }
   const cbtn=document.getElementById("critbtn"); if(cbtn){ const c=VIEW==="sequence"||VIEW==="decision"; cbtn.hidden=!c; if(!c) document.body.classList.remove("crit"); cbtn.setAttribute("aria-pressed",document.body.classList.contains("crit")); }
+  const mbtn=document.getElementById("mmdbtn"); if(mbtn) mbtn.hidden=!(VIEW==="sequence"||VIEW==="decision");
+  renderTitle();
   if(VIEW==="comic") renderComic(); else if(VIEW==="sequence") renderSeq(); else if(VIEW==="decision") renderDecision(); else renderCriteria();
   if(anchorKey!=null && oldTop!=null && VIEW==="comic"){
     const el=document.querySelector(`#comic [data-choice="${anchorKey}"]`);
@@ -44,9 +46,23 @@ function choose(opt){
   normalize(STATE); writeHash(); render(key,top);
   if(VIEW!=="comic"){ const nb=document.querySelector(`#${VIEW} .seqscroll`); if(nb){ nb.scrollLeft=sl; nb.scrollTop=stp; } window.scrollTo(wx,wy); }
 }
+// copy the open diagram as Mermaid text; the Clipboard API needs a secure context, older browsers fall back to execCommand
+function copyText(t){
+  if(navigator.clipboard&&window.isSecureContext) return navigator.clipboard.writeText(t);
+  return new Promise((ok,ko)=>{ const ta=document.createElement("textarea"); ta.value=t; ta.setAttribute("readonly",""); ta.style.cssText="position:fixed;top:0;opacity:0";
+    document.body.appendChild(ta); ta.select(); let done=false; try{ done=document.execCommand("copy"); }catch(e){} ta.remove(); done?ok():ko(); });
+}
+let mmdTimer=null;
+function copyMermaid(btn){
+  const crit=document.body.classList.contains("crit"), css=getComputedStyle(document.documentElement);
+  const txt=VIEW==="sequence"?seqMermaid(STATE,crit):flowMermaid(STATE,crit,k=>css.getPropertyValue("--c-"+k).trim());
+  const say=m=>{ btn.textContent=m; clearTimeout(mmdTimer); mmdTimer=setTimeout(()=>{ btn.textContent="Copy Mermaid"; },1500); };
+  copyText(txt).then(()=>say("Copied"),()=>say("Copy failed"));
+}
 document.addEventListener("click",e=>{
   const opt=e.target.closest(".wopt"); if(opt){ choose(opt); return; }
   const cb=e.target.closest(".critbtn"); if(cb){ const on=document.body.classList.toggle("crit"); cb.setAttribute("aria-pressed",on); writeHash(); const wy=window.scrollY; render(); window.scrollTo(window.scrollX,wy); return; }
+  const mb=e.target.closest(".mmdbtn"); if(mb){ copyMermaid(mb); return; }
   const wb=e.target.closest(".widebtn"); if(wb){ const on=document.body.classList.toggle("wide"); wb.setAttribute("aria-pressed",on); writeHash(); if(VIEW==="sequence"){ const wy=window.scrollY; render(); window.scrollTo(window.scrollX,wy); } return; }
   const tab=e.target.closest(".viewtab"); if(tab){ VIEW=tab.dataset.view; writeHash(); render(); window.scrollTo(0,0); return; }
   if(e.target.closest("#critapply")){ applyCriteria(); return; }

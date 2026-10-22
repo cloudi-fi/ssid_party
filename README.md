@@ -1,10 +1,10 @@
 # SSID_PARTY
 
-*A night at the captive portal.*
+*Night at the Captive Portal.*
 
-An interactive stick-figure comic about what a device goes through on a Cloudi-Fi captive-portal network: joining the Wi-Fi, the RADIUS check, getting an address, captive-portal detection, registration, and the final authorization that opens the Internet. Pick the phone, the controller vendor, the enforcement mode, the DHCP setup or the registration method, and the story changes with you, including the ways it goes wrong.
+An interactive stick-figure comic about what a device goes through on a Cloudi-Fi captive-portal network: joining the Wi-Fi, the RADIUS check, getting an address, captive-portal detection, registration, and the final authorization that opens the Internet. Pick the phone, the controller vendor, the enforcement mode, the DHCP setup or the registration method, and the story changes with you, including the ways it goes wrong. The title picks the door: SSID_PARTY, the open network with its captive portal, or SSID_PARTY_SECURE 🔒, where 802.1X checks a certificate or a password before letting the device in, with no portal at all.
 
-There are 16 criteria. Together they give 171,351 valid configurations, which play out as 1,357 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
+There are 18 criteria. Together they give 171,393 valid configurations, which play out as 1,359 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
 
 **Live: https://cloudi-fi.github.io/ssid_party/**
 
@@ -30,7 +30,9 @@ In the comic, the Cloudi-Fi logo before a name marks Cloudi-Fi's own services: P
 - **Comic**: the story, panel by panel. A dropdown in a panel's title shows the other ways that step can go.
 - **Sequence**: the same steps as messages between the network components involved. "Show criteria" adds the decision points and their choices.
 - **Flow**: the steps of the current story, top to bottom. "Show criteria" reveals every branch the story can take, with the current path in bold.
-- **Criteria**: the scenario as flat, editable YAML.
+- **Criteria**: the scenario as flat, editable YAML, in two groups: the local context (the site's network and services) and the user context (the device and its journey).
+
+In both diagram views, "Copy Mermaid" copies the diagram as shown, in [Mermaid](https://mermaid.js.org) syntax, ready to paste into a Markdown file, a wiki or the Mermaid Live Editor.
 
 You can change a choice from any view: a panel title, a diagram chip or the YAML. All four views then follow.
 

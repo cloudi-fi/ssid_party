@@ -23,6 +23,16 @@ function titleSel(key){
   if(g) body+=`</optgroup>`;
   return `<span class="narr nsel"><span class="ntxt">${esc(NB(FULL(V(cur.title,STATE))))}<span class="caret" aria-hidden="true">▾</span></span><select class="wselect tsel" id="wi-${key}" data-k="${key}" aria-label="Change this step (${esc(c.tq)})">${body}</select></span>`;
 }
+// the page title is the SSID picker: the name as text, with a transparent select over it (as in the panel titles);
+// each SSID has its own tagline, a film title (Night at the Museum, Eyes Wide Shut)
+function renderTitle(){
+  const h=document.getElementById("title"); if(!h) return;
+  const c=CHOICES.ssid, cur=c.opts.find(o=>o.v===STATE.ssid)||c.opts[0];
+  h.classList.toggle("long",cur.label.length>16); // phones: the 802.1X name is set a little smaller, to stay on one line
+  h.innerHTML=`<span class="nsel hsel"><span class="ntxt">${esc(cur.label)}<span class="caret" aria-hidden="true">▾</span></span><select class="wselect tsel" id="wi-ssid" data-k="ssid" aria-label="Choose the SSID">`+
+    c.opts.map(o=>`<option value="${o.v}"${o.v===cur.v?" selected":""}>${esc(o.label)}</option>`).join("")+`</select></span>`;
+  const tl=document.getElementById("tagline"); if(tl) tl.textContent=cur.sub;
+}
 function whatIf(key){
   const c=CHOICES[key];
   return `<div class="whatif"><label class="wq" for="wi-${key}">${esc(c.q)}</label><span class="wsel"><select class="wselect" id="wi-${key}" data-k="${key}">`+
@@ -79,18 +89,23 @@ function laneLogo(k,s){
   if(k==="phyre"&&(cloud(s)||fwL(s))) return `img/vendors/${FW_LOGO[s.fwvendor]}.svg`;
   return null;
 }
+// the lanes of a sequence diagram: every component with "Show criteria", otherwise only those the story's messages involve
+function seqLanes(ids,s,crit){
+  const used=new Set(); for(const id of ids) for(const m of V(N[id].seq,s)||[]){ used.add(m.f); used.add(m.t); }
+  return crit?LANES:LANES.filter(k=>used.has(k));
+}
+const SEQ_HACK="Internet access · identity never verified (DHCP blacklist bypassed)";
 function renderSeq(){
   const wide=document.body.classList.contains("wide"), host=document.getElementById("sequence");
   const avail=wide&&host&&host.clientWidth?host.clientWidth-4:0;
   const ids=path(STATE), rowH=34, crit=document.body.classList.contains("crit"); // messages only, unless "Show criteria" adds the alt frames, labels and choice chips
-  const used=new Set(); for(const id of ids) for(const m of V(N[id].seq,STATE)||[]){ used.add(m.f); used.add(m.t); }
-  SLANES=crit?LANES:LANES.filter(k=>used.has(k));
+  SLANES=seqLanes(ids,STATE,crit);
   LGAP=Math.max(108,Math.floor((avail-120)/(SLANES.length-1))||108); SW=120+(SLANES.length-1)*LGAP;
   let y=14, body="";
   for(const id of ids){
     const p=N[id], seq=V(p.seq,STATE);
     if(crit&&hasChoice(id,STATE)){
-      const c=CHOICES[p.choice], top=y; y+=8;
+      const c=CHOICES[p.choice], top=y+4; y+=12; // clear of a self-message label just above
       let hx=58, chips="", line=0;
       const lab=`[${c.tq}]`;
       chips+=`<text x="${hx}" y="${y+13}" font-family="var(--font-sans)" font-size="11" font-weight="500" fill="var(--ink)">${esc(lab)}</text>`;
@@ -107,7 +122,7 @@ function renderSeq(){
     }
   }
   y+=18;
-  if(ids.includes("nHack")&&N[ids[ids.length-1]].ok){ const x=LX(0); body+=`<text x="${x-8}" y="${y+4}" font-family="var(--font-sans)" font-size="11" font-weight="500" fill="var(--c-fail)">Internet access · identity never verified (DHCP blacklist bypassed)</text>`; y+=20; }
+  if(ids.includes("nHack")&&N[ids[ids.length-1]].ok){ const x=LX(0); body+=`<text x="${x-8}" y="${y+4}" font-family="var(--font-sans)" font-size="11" font-weight="500" fill="var(--c-fail)">${SEQ_HACK}</text>`; y+=20; }
   if(N[ids[ids.length-1]].end){ const x=LX(0); body+=`<line x1="${x-12}" y1="${y-8}" x2="${x+12}" y2="${y+8}" stroke="var(--c-fail)" stroke-width="2.4"/><line x1="${x+12}" y1="${y-8}" x2="${x-12}" y2="${y+8}" stroke="var(--c-fail)" stroke-width="2.4"/><text x="${x+20}" y="${y+4}" font-family="var(--font-sans)" font-size="11" fill="var(--c-fail)">no Internet access</text>`; y+=20; }
   const H=y+10;
   let lines=""; SLANES.forEach((k,i)=>{ lines+=`<line x1="${LX(i)}" y1="0" x2="${LX(i)}" y2="${H}" stroke="var(--line)" stroke-width="1.2" stroke-dasharray="4 4"/>`; });
@@ -241,24 +256,72 @@ function renderDecision(){
     <svg viewBox="0 0 ${L.W} ${L.H}" width="${L.W}" height="${L.H}" role="img" aria-label="Flow, every branch">${e}${n}${chips}</svg></div></div>`;
 }
 
+/* ---------- Mermaid export (Sequence and Flow tabs) ---------- */
+// label text: entity codes for the characters Mermaid would read as syntax
+const MMD_ESC={"#":"#35;",";":"#59;",'"':"#quot;","<":"#lt;",">":"#gt;"};
+// and the technical names in place of the characters' ("Dave's MAC" → "Device's MAC"); first names only where unambiguous
+const MMD_NAMES=Object.fromEntries(Object.entries(CH).flatMap(([k,c])=>[[c.name,TECH[k]],...(k==="porter"?[]:[[c.name.split(" ")[0],TECH[k]]])]));
+const MMD_NAME_RE=new RegExp(`\\b(${Object.keys(MMD_NAMES).sort((a,b)=>b.length-a.length).join("|")})\\b`,"g");
+const mmd=t=>String(t).replace(MMD_NAME_RE,n=>MMD_NAMES[n]).replace(/[#;"<>]/g,c=>MMD_ESC[c]);
+const stepMark=id=>N[id].ok?"✓ ":N[id].end?"✕ ":"";
+// Mermaid identifiers use the technical names, never the characters' (IdP (SSO) → IdP)
+const mmdId=k=>TECH[k].split(" ")[0];
+// the sequence diagram as shown: same lanes and messages, replies dashed; with criteria, each choice step in an alt block
+function seqMermaid(s,crit){
+  const ids=path(s), last=N[ids[ids.length-1]], out=["sequenceDiagram"];
+  for(const k of seqLanes(ids,s,crit)) out.push(`  participant ${mmdId(k)}${mmdId(k)===TECH[k]?"":` as ${mmd(TECH[k])}`}`);
+  for(const id of ids){
+    const p=N[id], msgs=(V(p.seq,s)||[]).map(m=>`${mmdId(m.f)}${m.r?"-->>":"->>"}${mmdId(m.t)}: ${mmd(m.l)}`);
+    if(crit&&hasChoice(id,s)){
+      const o=optsFor(p.choice,s).find(o=>o.v===s[p.choice]);
+      out.push(`  alt ${mmd(CHOICES[p.choice].tq)}: ${mmd(o?o.t:s[p.choice])}`,...msgs.map(m=>"    "+m),"  end");
+    } else out.push(...msgs.map(m=>"  "+m));
+  }
+  if(ids.includes("nHack")&&last.ok) out.push(`  Note over Device: ${mmd(SEQ_HACK)}`);
+  if(last.end) out.push("  Note over Device: ✕ no Internet access");
+  return out.join("\n")+"\n";
+}
+// the flow as shown: the current story's steps, or with criteria every branch (decisions as diamonds, choices on the
+// edges, the current path thicker); steps are outlined in their actor's colour when color(k) gives one
+function flowMermaid(s,crit,color){
+  const fp=fullPath(s), ids=crit?Object.keys(N):path(s), out=["flowchart TD"];
+  const E=crit?graphEdges():ids.slice(1).map((t,i)=>({f:ids[i],t}));
+  for(const id of ids) out.push(N[id].dec?`  ${id}{"${mmd(N[id].dec)}"}`:`  ${id}["${mmd(stepMark(id)+N[id].tag)}"]`);
+  for(const e of E) out.push(`  ${e.f} -->${e.l?`|"${mmd(e.l)}"|`:""} ${e.t}`);
+  if(color){
+    const by={}; for(const id of ids) if(!N[id].dec) (by[stepActor(id,s)]=by[stepActor(id,s)]||[]).push(id);
+    for(const k in by){ out.push(`  classDef ${mmdId(k)} stroke:${color(k)}${crit?"":",stroke-width:2px"}`,`  class ${by[k].join(",")} ${mmdId(k)}`); }
+  }
+  if(crit){
+    const on=new Set(fp.slice(1).map((t,i)=>fp[i]+">"+t)), li=E.map((e,i)=>on.has(e.f+">"+e.t)?i:-1).filter(i=>i>=0);
+    out.push("  classDef cur stroke-width:3px",`  class ${fp.join(",")} cur`);
+    if(li.length) out.push(`  linkStyle ${li.join(",")} stroke-width:3px`);
+  }
+  return out.join("\n")+"\n";
+}
+
 /* ---------- criteria (flat YAML) ---------- */
+// grouped by context: the site's network and services as the customer set them up, then the user's device and journey
+const CRIT_CTX={local:"Local context: the site's network and services",user:"User context: the device and its journey"};
 const CRIT=[
-  {name:"device_os",key:"os"},
-  {name:"controller_vendor",key:"vendor"},
-  {name:"enforcement",key:"integ"},
-  {name:"meraki_login",key:"mlogin"},
-  {name:"fw_vendor",key:"fwvendor"},
-  {name:"transient",key:"transient"},
-  {name:"mab",key:"radius"},
-  {name:"meraki_quarantine_policy",key:"qpolicy"},
-  {name:"dhcp",key:"dhcp"},
-  {name:"static_ip_bypass",key:"hack"},
-  {name:"dhcp_snooping",key:"snooping"},
-  {name:"visit",key:"visit"},
-  {name:"option_114",key:"o114"},
-  {name:"cna_done",key:"done"},
-  {name:"registration",key:"reg"},
-  {name:"sms_notification",key:"smsexit"}
+  {name:"controller_vendor",key:"vendor",ctx:"local"},
+  {name:"enforcement",key:"integ",ctx:"local"},
+  {name:"meraki_login",key:"mlogin",ctx:"local"},
+  {name:"meraki_quarantine_policy",key:"qpolicy",ctx:"local"},
+  {name:"fw_vendor",key:"fwvendor",ctx:"local"},
+  {name:"dhcp",key:"dhcp",ctx:"local"},
+  {name:"dhcp_snooping",key:"snooping",ctx:"local"},
+  {name:"option_114",key:"o114",ctx:"local"},
+  {name:"transient",key:"transient",ctx:"local"},
+  {name:"registration",key:"reg",ctx:"local"},
+  {name:"ssid",key:"ssid",ctx:"user"},
+  {name:"device_os",key:"os",ctx:"user"},
+  {name:"eap_method",key:"method",ctx:"user"},
+  {name:"mab",key:"radius",ctx:"user"},
+  {name:"static_ip_bypass",key:"hack",ctx:"user"},
+  {name:"visit",key:"visit",ctx:"user"},
+  {name:"cna_done",key:"done",ctx:"user"},
+  {name:"sms_notification",key:"smsexit",ctx:"user"}
 ];
 const CRIT_BY_NAME=Object.fromEntries(CRIT.map(c=>[c.name,c]));
 function derived(s){
@@ -272,12 +335,14 @@ function derived(s){
 }
 function criteriaText(s){
   const lines=["# SSID_PARTY — flat criteria. One line per criterion: key: value","# Values are the words used in the diagrams. Lines starting with # are ignored.",""];
+  let ctx=null; const w=Math.max(...CRIT.map(c=>c.name.length))+2;
   for(const c of CRIT){
+    if(c.ctx!==ctx){ if(ctx) lines.push(""); ctx=c.ctx; lines.push(`# ${CRIT_CTX[ctx]}`); }
     const all=CHOICES[c.key].opts, ok=optsFor(c.key,s);
     const vals=all.map(o=>o.v).join(" | ");
     let note="", shown=String(s[c.key]);
     if(ok.length===0){ shown="none"; note="  (not applicable here)"; } else if(ok.length<all.length) note=`  (here: ${ok.map(o=>o.v).join(" | ")})`;
-    lines.push(`${(c.name+":").padEnd(19)}${shown.padEnd(18)}# ${vals}${note}`);
+    lines.push(`${(c.name+":").padEnd(w)}${shown.padEnd(18)}# ${vals}${note}`);
   }
   return lines.join("\n");
 }

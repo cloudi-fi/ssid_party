@@ -3,10 +3,17 @@ const LANES=["dave","troller","phyre","ray","dippy","chippy","porter","soso"];
 const TECH={dave:"Device",troller:"Controller",phyre:"Firewall",ray:"RADIUS",dippy:"DHCP",chippy:"CPI",porter:"Portal",soso:"IdP (SSO)"};
 
 const CHOICES={
+  // the network Dave joins, chosen in the page title: the open captive-portal SSID or the 802.1X one
+  ssid:{q:"Which SSID",tq:"SSID",opts:[
+    {v:"open",label:"SSID_PARTY",t:"SSID_PARTY · open",sub:"Night at the Captive Portal."},
+    {v:"secure",label:"SSID_PARTY_SECURE 🔒",t:"SSID_PARTY_SECURE · 802.1X",sub:"Keys Wide Shut."}]},
   os:{q:"What if Dave…",tq:"Device OS",opts:[
     {v:"ios",label:"carries an iPhone",t:"iOS"},
     {v:"android",label:"carries an Android phone",t:"Android"},
     {v:"iot",label:"is an IP camera (no captive detection)",t:"IoT · no CPD"}]},
+  method:{q:"What if Dave…",tq:"EAP method",opts:[
+    {v:"tls",label:"carries a certificate (EAP-TLS)",t:"EAP-TLS · client certificate",when:s=>secure(s)},
+    {v:"ttls",label:"has a login and password (EAP-TTLS)",t:"EAP-TTLS · password",when:s=>secure(s)}]},
   dhcp:{q:"What if Dee…",tq:"DHCP lease",opts:[
     {v:"ok",label:"has a free address",t:"free address",group:"On-prem DHCP · plain lease, no MAC triage"},
     {v:"conflict",label:"remembers Dave, but his old IP is taken",t:"previous IP taken",group:"On-prem DHCP · plain lease, no MAC triage"},
@@ -74,6 +81,10 @@ const CHOICES={
     {when:s=>s.os!=="iot",v:"no",label:"shows the form right away",t:"classic"},
     {when:s=>s.os!=="iot",v:"yes",label:"hands out a transient pass first",t:"transient"}]}
 };
+// the 802.1X SSID has no captive portal: the portal-side criteria don't apply there (normalize resets them to their default)
+const secure=s=>s.ssid==="secure";
+const OPEN_ONLY=["dhcp","hack","snooping","o114","visit","done","reg","smsexit","integ","mlogin","radius","qpolicy","fwvendor","transient"];
+for(const k of OPEN_ONLY) for(const o of CHOICES[k].opts){ const w=o.when; o.when=w?s=>!secure(s)&&w(s):s=>!secure(s); }
 // links shared before MAB moved to the enforcement criterion: rewrite old hash values in place
 function legacyHash(h){
   const r=h.get("radius"), i=h.get("integ");
@@ -83,7 +94,7 @@ function legacyHash(h){
     if(!i||i==="radius") h.set("integ","controllerMab"); else if(i==="fwLocal"||i==="fwBoth") h.set("integ",i+"Mab");
   } else if(i==="radius") h.set("integ","controllerMab");
 }
-const DEF={os:"ios",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"sso",smsexit:"type"};
+const DEF={ssid:"open",os:"ios",method:"tls",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"sso",smsexit:"type"};
 const TITLES={
   os:{ios:"An iPhone rolls up to the club.",android:"An Android phone rolls up to the club.",iot:"An IP camera rolls up to the club."},
   radius:{unknown:s=>merakiMab(s)?"Ray lets him through anyway.":s.integ==="mabOnly"?"Ray doesn't know him — out.":"Ray says no.",known:"Ray already knows Dave."},
@@ -91,6 +102,7 @@ const TITLES={
   mlogin:{grant:"Port Al's word is enough.",radius:"One last double-check."},
   dhcp:{ok:"Dee hands him an address.",conflict:"Dee remembers him — new address.",exhausted:"Dee is out of addresses.",quarantine:"Dee, from the cloud, puts him in quarantine.",whitelist:"Dee, from the cloud, has him on the whitelist.",blacklist:"Dee, from the cloud, has him on the blacklist.",zombies:"Dee, from the cloud, is out of addresses — zombies."},
   hack:{no:"Dave keeps asking, forever.",yes:"Dave picks his own address."},
+  method:{tls:"Dave shows his own certificate.",ttls:"Dave whispers his password."},
   visit:{first:"Dave checks the kiosk.",returning:"Dave doesn't bother checking."},
   snooping:{no:s=>`${greetK(s)==="phyre"?"Phyre Wall":"Conn Troller"} doesn't notice the new address.`,yes:s=>`${greetK(s)==="phyre"?"Phyre Wall":"Conn Troller"} drops the unlearned address.`},
   o114:{yes:"Dee adds a note to the ticket.",no:"No note this time."},
@@ -100,7 +112,7 @@ const TITLES={
   integ:{controller:s=>usesRadius(s)?"Conn doesn't even ask Ray.":"Conn skips the list.",controllerMab:"Conn checks with the list.",mabOnly:"Conn checks with the list — MAB-only SSID, no portal.",fwLocal:"Conn steps aside — Phyre Wall, on site, doesn't even ask Ray.",fwLocalMab:"Conn steps aside — Phyre Wall, on site, checks with the list.",fwBothMab:"Phyre Wall does it all — and checks with the list.",fwBoth:"Phyre Wall does it all — and doesn't even ask Ray.",cloud:"Conn waves everyone in — Phyre Wall checks from the cloud."},
   fwvendor:{zscaler:"Phyre Wall is a Zscaler.",netskope:"Phyre Wall is a Netskope.",fortigate:"Phyre Wall is a FortiGate."},
   transient:{no:"Port Al shows the form right away.",yes:"Port Al hands out a visitor pass."},
-  vendor:Object.fromEntries([["cisco-wlc","a Cisco WLC"],["aruba","an Aruba"],["meraki","a Meraki"],["mist","a Juniper Mist"],["ruckus-ap","a Ruckus AP"],["ruckus-smartzone","a Ruckus SmartZone"],["fortigate","a FortiGate"]].map(([v,n])=>[v,`Dave hands his MAC to ${n}.`]))
+  vendor:Object.fromEntries([["cisco-wlc","a Cisco WLC"],["aruba","an Aruba"],["meraki","a Meraki"],["mist","a Juniper Mist"],["ruckus-ap","a Ruckus AP"],["ruckus-smartzone","a Ruckus SmartZone"],["fortigate","a FortiGate"]].map(([v,n])=>[v,s=>secure(s)?`Dave gives his name to ${n}.`:`Dave hands his MAC to ${n}.`]))
 };
 for(const k in TITLES) CHOICES[k].opts.forEach(o=>o.title=TITLES[k][o.v]);
 
@@ -110,9 +122,12 @@ const V=(x,s)=>typeof x==="function"?x(s):x;
 const C=(base,o)=>Object.assign({},base,o);
 
 const N={};
-N.n1={choice:"os",narr:"A new device rolls up to the club.",loc:"outside",bg:"door",tag:"802.11 · assoc",note:"Device associates to the SSID — on the air, but no IP and no access yet.",
-  a:s=>[{k:"dave",x:170,b:"Hi, can I join SSID_PARTY?",al:"left"},{k:greetK(s),x:340,b:"Welcome, what's your MAC?",al:"right"}],
-  seq:s=>[{f:"dave",t:greetK(s),l:"Association Request (SSID_PARTY)"}],next:"n2"};
+N.n1={choice:"os",narr:"A new device rolls up to the club.",loc:"outside",bg:s=>secure(s)?"door-secure":"door",tag:"802.11 · assoc",
+  note:s=>secure(s)?"Device associates to the 802.1X SSID — on the air, but nothing except EAP gets through until it proves who it is.":"Device associates to the SSID — on the air, but no IP and no access yet.",
+  a:s=>secure(s)?[{k:"dave",x:170,b:"Hi, can I join SSID_PARTY_SECURE?",al:"left"},{k:"troller",x:340,b:"Members only. Who are you?",al:"right"}]
+    :[{k:"dave",x:170,b:"Hi, can I join SSID_PARTY?",al:"left"},{k:greetK(s),x:340,b:"Welcome, what's your MAC?",al:"right"}],
+  seq:s=>[{f:"dave",t:greetK(s),l:secure(s)?"Association Request (SSID_PARTY_SECURE · WPA2-Enterprise)":"Association Request (SSID_PARTY)"}],next:"dSsid"};
+N.dSsid={dec:"SSID?",next:{k:"ssid",map:{open:"n2",secure:"x2"}}};
 N.n2={choice:"vendor",narr:"Dave hands over his MAC.",loc:"at the door",bg:"door",tag:"L2 · MAC",
   note:s=>`The ${VNAME[s.vendor]} ${fwBo(s)?"box":"controller"} identifies the device by its MAC address.${cloud(s)?"":s.vendor==="mist"?" Mist hands sessions back with a signed URL: no RADIUS at login.":s.vendor==="meraki"?" Meraki hands sessions back through its grant URL or a RADIUS login.":" This vendor needs RADIUS at login; checking the MAC at association (MAB) is optional."}`,
   a:s=>[{k:"dave",x:170,b:"AA:BB:CC:11:22",al:"left"},{k:greetK(s),x:340,b:"OK, wait a sec.",al:"right"}],
@@ -572,6 +587,43 @@ N.nPasskeyEnd={end:1,narr:"Stuck at the booth.",loc:"id booth",bg:"booth",tag:"W
   note:"Without a fallback method on the IdP (password, OTP), SSO can't complete inside the mini-browser. Escaping to a real browser is the fix.",
   a:[{k:"dave",x:130,b:"This isn't going anywhere...",kind:"think",al:"left",mood:"flat"},{k:"soso",x:330,b:"No passkey here. Sorry, Dave.",al:"right",mood:"flat"}],
   seq:[{f:"soso",t:"dave",l:"no assertion",r:1}]};
+/* ---------- SSID_PARTY_SECURE: 802.1X at the door, no captive portal ---------- */
+// first cut: the happy path, EAP-TLS or EAP-TTLS; the controller only relays EAP, Ray (RADIUS) decides
+const doorCrew=(dave,conn,ray)=>[{k:"dave",x:103,...(dave?{b:dave,al:"left"}:{})},{k:"troller",x:225,...(conn?{b:conn,al:"center",top:true}:{})},{k:"ray",x:355,...(ray?{b:ray,al:"right"}:{}),seated:true}];
+N.x2={choice:"vendor",narr:"Members only.",loc:"at the members' door",bg:"door-inside",tag:"EAP · Identity",
+  note:"The controller asks who's there and relays the answer to RADIUS: EAP travels over the air to the controller, then inside RADIUS to the server. Until it succeeds, nothing else gets through.",
+  a:doorCrew(null,"Ray, a Dave for the members' room.","Let's see some ID."),
+  seq:[{f:"troller",t:"dave",l:"EAP-Request · Identity"},{f:"dave",t:"troller",l:"EAP-Response · Identity (user name)",r:1},{f:"troller",t:"ray",l:"Access-Request (EAP-Message · Identity)"}],next:"x3"};
+N.x3={narr:"Ray shows his badge first.",loc:"at the members' door",bg:"door-inside",tag:"TLS handshake · server certificate",
+  note:"RADIUS answers with its own certificate, relayed by the controller. The device checks it against the CA and server name in its Wi-Fi profile before saying anything else: a fake Ray would get nothing.",
+  a:doorCrew("You first. Badge?",null,"Ray Dius, certified. See?"),
+  seq:[{f:"ray",t:"troller",l:"Access-Challenge (TLS · server certificate)",r:1},{f:"troller",t:"dave",l:"EAP-Request (TLS · server certificate)",r:1},{f:"dave",t:"dave",l:"server certificate checked against the Wi-Fi profile"}],next:"dMethod"};
+N.dMethod={dec:"EAP method?",next:{k:"method",map:{tls:"x4t",ttls:"x4p"}}};
+N.x4t={choice:"method",narr:"Dave shows his own certificate.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TLS · client certificate",
+  note:"EAP-TLS: Dave shows a certificate too. His company's MDM installed it beforehand, or enrolled it over SCEP. RADIUS accepts it only if it chains up to a CA this customer registered: its own, or one Cloudi-Fi runs for it.",
+  a:doorCrew("And here's mine.",null,"Signed by your company. Good."),
+  seq:[{f:"dave",t:"troller",l:"EAP-Response (TLS · client certificate)"},{f:"troller",t:"ray",l:"Access-Request (TLS · client certificate)"},{f:"ray",t:"ray",l:"certificate chain → customer's CA"}],next:"x5"};
+N.x4p={choice:"method",narr:"Dave whispers his password.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TTLS · password in the tunnel",
+  note:"EAP-TTLS: only RADIUS shows a certificate. Inside the encrypted tunnel, the device sends a login and password, and RADIUS checks them with the company directory (LDAP or Entra ID).",
+  a:doorCrew("Psst: dave / hunter2.",null,"Checking with your directory..."),
+  seq:[{f:"dave",t:"troller",l:"EAP-Response (TTLS tunnel · login, password)"},{f:"troller",t:"ray",l:"Access-Request (tunnelled credentials)"},{f:"ray",t:"ray",l:"login checked with the directory (LDAP / Entra ID)"}],next:"x5"};
+N.x5={narr:"Ray says yes.",loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Accept (VLAN)",
+  note:"RADIUS applies the customer's NAC policy (allow or deny, and which VLAN), then sends the accept along with the session keys. The controller tells the device it's in.",
+  a:doorCrew(null,"VLAN 20, got it.","Policy says yes. VLAN 20."),
+  seq:[{f:"ray",t:"ray",l:"NAC policy → allow · VLAN 20"},{f:"ray",t:"troller",l:"Access-Accept (EAP-Success, keys, VLAN 20)",r:1},{f:"troller",t:"dave",l:"EAP-Success",r:1}],next:"x6"};
+N.x6={narr:"Conn hands him the keys.",loc:"stepping in",bg:"door-secure",tag:"4-way handshake · keys",
+  note:"Both sides derive the same encryption keys from the 802.1X exchange and prove it in four EAPOL-Key messages. From now on Dave's traffic is encrypted, and placed in VLAN 20.",
+  a:[{k:"dave",x:150,band:"--band-green"},{k:"troller",x:340,b:"Your keys. Members' room, see Dee.",al:"right"}],
+  seq:[{f:"troller",t:"dave",l:"EAPOL-Key (4-way handshake)"},{f:"dave",t:"troller",l:"EAPOL-Key (4-way handshake)",r:1},{f:"troller",t:"dave",l:"port open · VLAN 20",r:1}],next:"x7"};
+N.x7={narr:"Dee hands him an address.",loc:"cloakroom",bg:"cloakroom",tag:"DHCP · lease in VLAN 20",
+  note:"Only now does the device ask for an address: on the members' VLAN, from that VLAN's pool.",
+  a:[{k:"dave",x:130,b:"Hi Dee, VLAN 20 — got an IP for me?",al:"left",band:"--band-green"},{k:"dippy",x:320,b:"Members' room: 10.0.20.47.",al:"right"}],
+  seq:[{f:"dave",t:"dippy",l:"DHCP DISCOVER (VLAN 20)"},{f:"dippy",t:"dave",l:"OFFER 10.0.20.47",r:1},{f:"dave",t:"dippy",l:"DHCP REQUEST"},{f:"dippy",t:"dave",l:"ACK",r:1}],next:"x8"};
+N.x8={ok:1,narr:"Straight to the dancefloor.",loc:"the dancefloor",bg:"dancefloor",tag:"No portal → Internet",
+  note:s=>s.os==="iot"?"No captive portal on this SSID: the camera is online as soon as it has its address.":"The OS probe goes straight through: no captive portal on this SSID, so no mini-browser pops up. Dave is online.",
+  a:[{k:"troller",x:270,b:"Members don't queue. Go ahead!",al:"left"},{k:"dave",x:380,b:"No portal? Sweet!",al:"right",band:"--band-green"}],
+  seq:s=>[...(s.os==="iot"?[]:[{f:"dave",t:"dave",l:"OS probe passes · not captive"}]),{f:"troller",t:"dave",l:"VLAN 20 · Internet open",r:1}]};
+
 function nextOf(id,s){
   const nx=N[id].next; if(!nx) return null;
   if(typeof nx==="string") return nx;
@@ -584,6 +636,7 @@ const path=s=>fullPath(s).filter(id=>!N[id].dec);
 const hasChoice=(id,s)=>N[id].choice && (!N[id].choiceIf||N[id].choiceIf(s)) && optsFor(N[id].choice,s).length>1;
 const optsFor=(key,s)=>CHOICES[key].opts.filter(o=>!o.when||o.when(s));
 function normalize(st){
+  if(secure(st)) for(const k of OPEN_ONLY) st[k]=DEF[k]; // no stale portal-side value leaks into the 802.1X story
   for(let pass=0;pass<2;pass++) for(const k in CHOICES){
     const ok=optsFor(k,st); if(ok.length && !ok.some(o=>o.v===st[k])) st[k]=ok.some(o=>o.v===DEF[k])?DEF[k]:(ok.find(o=>o.fb)||ok[0]).v;
   }

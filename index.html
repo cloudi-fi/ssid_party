@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SSID_PARTY — a night at the captive portal</title>
+<title>SSID_PARTY — Night at the Captive Portal</title>
 <link rel="icon" href="img/favicon.ico">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -11,8 +11,8 @@
 <div class="wrap">
   <h2 class="sr-only">A scroll-down comic strip, two panels per row, showing step by step how a device joins a Wi-Fi network, is held captive, talks to the captive-portal API, registers via single sign-on, and finally reaches the internet.</h2>
   <header class="top">
-    <h1>SSID_PARTY</h1>
-    <p class="tagline">A night at the captive portal.</p>
+    <h1 id="title">SSID_PARTY</h1>
+    <p class="tagline" id="tagline">Night at the Captive Portal.</p>
     <nav class="views" role="tablist" aria-label="View">
       <button type="button" class="viewtab" role="tab" data-view="comic">Comic</button>
       <button type="button" class="viewtab" role="tab" data-view="sequence">Sequence</button>
@@ -21,6 +21,7 @@
       <span class="tools">
         <button type="button" class="toolbtn critbtn" id="critbtn" aria-pressed="false" hidden>Show criteria</button>
         <button type="button" class="toolbtn widebtn" id="widebtn" aria-pressed="false" hidden>Full width</button>
+        <button type="button" class="toolbtn mmdbtn" id="mmdbtn" hidden>Copy Mermaid</button>
       </span>
     </nav>
   </header>

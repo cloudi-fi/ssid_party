@@ -33,7 +33,7 @@ h1{font-family:var(--font-sfx);font-weight:400;font-size:46px;line-height:.95;le
 .cast b{font-weight:500}
 .cast em{color:var(--ink-2);font-style:normal}
 .comic{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
-@media (max-width:580px){ .comic{grid-template-columns:1fr} h1{font-size:38px} }
+@media (max-width:580px){ .comic{grid-template-columns:1fr} h1{font-size:min(38px,10.4vw)} h1.long{font-size:min(38px,9.6vw)} }
 .panel{margin:0;border:2px solid var(--ink);border-radius:10px;overflow:hidden;background:var(--surface);
   display:flex;flex-direction:column}
 /* title, scene and footer rows shared by the two panels of a row, so floors line up when one title wraps */
@@ -105,7 +105,7 @@ body.wide .seqinner,body.wide .seqheadin{min-width:0}
 .trunkend{padding-left:0}
 .readbtn{margin:8px 0 0 28px;font-family:var(--font-sans);font-size:13px;color:var(--ink);background:var(--surface);border:1.5px solid var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer}
 .readbtn:hover{background:var(--ink);color:var(--surface)}
-.tools{margin-left:auto;display:flex;gap:6px}
+.tools{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 .toolbtn{font-family:var(--font-sans);font-size:13px;color:var(--ink);background:var(--surface);border:1.5px dashed var(--ink-2);border-radius:999px;padding:5px 12px;cursor:pointer}
 .toolbtn[aria-pressed="true"]{border-style:solid;border-color:var(--ink);background:var(--ink);color:var(--surface)}
 body.wide .wrap{max-width:none}
@@ -121,6 +121,9 @@ body.wide .wrap{max-width:none}
 .caret{font-family:var(--font-sans);font-size:12px;margin-left:6px;color:var(--ink-2)}
 .tsel{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px;appearance:none;-webkit-appearance:none;border:0;padding:0}
 .nsel:hover .ntxt{border-bottom-style:solid}
+.hsel{white-space:nowrap}
+.hsel .ntxt{border-bottom-width:3px}
+.hsel .caret{font-size:22px;margin-left:8px;vertical-align:middle}
 .nsel:focus-within .ntxt{outline:2px solid var(--c-dave);outline-offset:3px;border-radius:2px}
 .yaml{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;color:var(--ink);background:var(--surface);border:2px solid var(--ink);border-radius:10px;padding:12px 14px;width:100%;box-sizing:border-box;white-space:pre;overflow:auto;tab-size:2}
 textarea.yaml{resize:vertical;min-height:180px}

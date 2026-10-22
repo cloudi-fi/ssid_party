@@ -168,10 +168,10 @@ function inside(){ return `<rect x="0" y="0" width="${W}" height="${FLOOR}" ${S2
 const DOOR_TOP=66;
 // extra width added to every door on its left side (right edge unchanged)
 const DOOR_EXTRA=12;
-function door(){ return `<rect x="${282-DOOR_EXTRA}" y="${DOOR_TOP}" width="${76+DOOR_EXTRA}" height="${FLOOR-DOOR_TOP}" ${S2} ${IN} stroke-width="1.2"/>`
-  // the SSID_PARTY sign is the entrance's lintel
+function door(sign="SSID_PARTY"){ return `<rect x="${282-DOOR_EXTRA}" y="${DOOR_TOP}" width="${76+DOOR_EXTRA}" height="${FLOOR-DOOR_TOP}" ${S2} ${IN} stroke-width="1.2"/>`
+  // the SSID sign is the entrance's lintel (the longer 802.1X name in a smaller size)
   + `<rect x="${276-DOOR_EXTRA}" y="${DOOR_TOP-18}" width="${88+DOOR_EXTRA}" height="18" rx="3" ${SF} ${IN} stroke-width="1.5"/>`
-  + `<text x="${320-DOOR_EXTRA/2}" y="${DOOR_TOP-4}" text-anchor="middle" font-family="var(--font-sfx)" font-size="13" fill="var(--ink)" letter-spacing="0.5">SSID_PARTY</text>`
+  + `<text x="${320-DOOR_EXTRA/2}" y="${DOOR_TOP-4}" text-anchor="middle" font-family="var(--font-sfx)" font-size="${sign.length>12?10.5:13}" fill="var(--ink)" letter-spacing="0.5">${sign}</text>`
   + notes(290,100)
   + floor(); }
 function doorInside(){ return `<rect x="0" y="0" width="${W}" height="${FLOOR}" ${S2}/>`
@@ -213,6 +213,7 @@ function skeleton(cx){
 function bg(type){
   switch(type){
     case "door": return door();
+    case "door-secure": return door("SSID_PARTY_SECURE");
     case "door-ray": return door();
     case "door-inside": return doorInside();
     case "door-inside-fw": return `<g transform="translate(46,0)">${doorInside()}</g><rect x="0" y="0" width="46" height="${FLOOR}" ${S2}/>`+floor();
