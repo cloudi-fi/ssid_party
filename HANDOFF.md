@@ -86,6 +86,8 @@ Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it 
 
 ## 6. Writing rules
 
+- Dave is not always a phone: a sentence that names his device goes through `dev(s)` (`DEVICE_NOUN` in `graph.js`: phone for iOS and Android, camera for IoT). Windows PCs and Macs will come as laptops (Macs behave like iPhones with captive portals); add them there.
+
 - **Names.** Titles use full names (automatic through `FULL()`). Direct address uses first names ("Hi Dave", "Hey Ray", "Hi Ida"). Referring to a third party uses the full name ("See Dee Ashcipee", "Ask Cee Peahy first"). Port Al is always "Port Al". Composite names never break across lines (`NB()`).
 - **Titles** are sentences in the story's voice, never "what if…". Alternatives of a choice appear as other titles in the dropdown of the same panel. There is no notion of "main story"; the default is just the default.
 - **Dialogue** is short and in character; bubbles wrap at 18 characters, shout bubbles take the speaker's colour. Thought bubbles for inner state.

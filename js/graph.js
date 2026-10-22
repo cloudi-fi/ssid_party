@@ -118,7 +118,7 @@ const TITLES={
   dhcp:{ok:"Dee hands him an address.",conflict:"Dee remembers him — new address.",exhausted:"Dee is out of addresses.",quarantine:"Dee, from the cloud, puts him in quarantine.",whitelist:"Dee, from the cloud, has him on the whitelist.",blacklist:"Dee, from the cloud, has him on the blacklist.",zombies:"Dee, from the cloud, is out of addresses — zombies."},
   hack:{no:"Dave keeps asking, forever.",yes:"Dave picks his own address."},
   method:{tls:"Dave shows his own certificate.",ttls:"Dave whispers his password."},
-  nac:{allow:"Ray says yes.",deny:"Ray says no.",blacklist:"Ray knows that phone."},
+  nac:{allow:"Ray says yes.",deny:"Ray says no.",blacklist:s=>`Ray knows that ${dev(s)}.`},
   creds:{ok:s=>s.method==="ttls"?"Ida vouches for him.":"Signed by his company.",bad:s=>s.method==="ttls"?"Ida doesn't buy it.":"Signed by a stranger."},
   idsrc:{ldap:"Ida Pee checks her directory.",entraid:"Ida Pee answers from the cloud.",guest:"Ida Pee checks the guest accounts."},
   visit:{first:"Dave checks the kiosk.",returning:"Dave doesn't bother checking."},
@@ -135,6 +135,9 @@ const TITLES={
 };
 for(const k in TITLES) CHOICES[k].opts.forEach(o=>o.title=TITLES[k][o.v]);
 
+// what Dave is, in a sentence: not always a phone (laptops will come with Windows and macOS)
+const DEVICE_NOUN={ios:"phone",android:"phone",iot:"camera"};
+const dev=s=>DEVICE_NOUN[s.os]||"device";
 const ios=s=>s.os==="ios", br=s=>ios(s)?"Safari":"Chrome", mini=s=>ios(s)?"the CNA mini-browser":"Android's sign-in app";
 const sso=s=>s.reg==="sso"||s.reg==="mfa"||s.reg==="passkey";
 const V=(x,s)=>typeof x==="function"?x(s):x;
@@ -290,7 +293,7 @@ N.dRole1={dec:"Role?",next:roleCases("n8m","dVisit")};
 N.dRole2={dec:"Role?",next:roleCases("n19m2","n12n")};
 N.dVisit={dec:"Returning iPhone?",next:{k:"visit",map:{first:"n8",returning:"nStale"}}};
 N.nStale={end:1,choice:"visit",narr:"Dave doesn't bother checking.",loc:"the kiosk",bg:"kiosk",tag:"iOS · stale captive state · the end",
-  note:"On a previous visit the CPI told iOS this network wasn't captive (the CNA bypass). iOS remembers it: back on the SSID, even with the option 114 note in hand, it runs no probe and never asks the CPI again. Its session has expired, so it sits in the hall like a zombie, until the network is forgotten on the phone.",
+  note:s=>"On a previous visit the CPI told iOS this network wasn't captive (the CNA bypass). iOS remembers it: back on the SSID, even with the option 114 note in hand, it runs no probe and never asks the CPI again. Its session has expired, so it sits in the hall like a zombie, until the network is forgotten on the "+dev(s)+".",
   a:[{k:"dave",x:130,b:"This place was fine last time.",kind:"think",al:"left",zombie:true},{k:"chippy",x:320,mood:"flat"}],
   seq:[{f:"dave",t:"dave",l:"no probe · no CPI call (network remembered as not captive)"}]};
 N.n8={choice:"visit",narr:"Dave checks the kiosk.",loc:"the kiosk",bg:"kiosk",tag:"CPI · captive:true",note:s=>`CPI requests carry no cookie: the device is identified by the URL from the DHCP note (option 114), which has its MAC and IP written in it. The API answers captive:true and points to the portal URL — that first captive:true is what makes the OS open ${mini(s)}.`,
@@ -490,7 +493,7 @@ N.n9t={choice:"transient",narr:"Port Al hands over a visitor pass.",loc:"recepti
   seq:s=>[{f:"dave",t:"porter",l:`${ios(s)?"CNA":"sign-in app"}: GET user-portal-url`},{f:"porter",t:"dave",l:"SAML assertion (transient user)",r:1}],next:"n9t2"};
 N.n9t2={narr:"Dave shows his visitor pass.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · transient profile",
   note:s=>`The browser carries Port Al's SAML assertion to the cloud firewall, which ties Dave's IP to a limited 'transient' profile: ${ios(s)?"captive.apple.com":"the connectivity check"} passes, the rest doesn't.`,
-  a:[{k:"dave",x:170,b:"Port Al gave me a visitor pass.",al:"left"},{k:"phyre",x:315,b:"Visitor pass — fine. Your phone can check in.",al:"right"}],
+  a:s=>[{k:"dave",x:170,b:"Port Al gave me a visitor pass.",al:"left"},{k:"phyre",x:315,b:`Visitor pass — fine. Your ${dev(s)} can check in.`,al:"right"}],
   seq:[{f:"dave",t:"phyre",l:"POST SAML assertion (transient)"},{f:"phyre",t:"phyre",l:"IP surrogate → transient profile"}],next:"dOs1"};
 N.dEnf2={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {when:s=>ctrlLike(s),l:"controller",set:{integ:"controller"},to:"n13"},
@@ -612,7 +615,7 @@ N.n16P={choice:"reg",narr:"Ida Pee asks for a glance.",loc:"id booth",bg:"booth"
   seq:[{f:"porter",t:"dave",l:"redirect → IdP",r:1},{f:"dave",t:"soso",l:"WebAuthn assertion (Face ID / Touch ID)"},{f:"soso",t:"dave",l:"signed assertion",r:1}],next:"n17"};
 N.n16nP={choice:"reg",narr:"Ida Pee asks for a glance.",loc:"id booth",bg:"booth",tag:"SSO · passkey in the mini-browser",
   note:s=>ios(s)?"The CNA doesn't support WebAuthn: the Face ID prompt never shows up.":"Android's sign-in app doesn't expose passkeys either: the prompt never shows up.",
-  a:[{k:"dave",x:130,b:"Face ID?... nothing happens.",al:"left",mood:"flat"},{k:"soso",x:330,b:"Just look at your phone, Dave.",al:"right"}],
+  a:[{k:"dave",x:130,b:"Face ID?... nothing happens.",al:"left",mood:"flat"},{k:"soso",x:330,b:s=>`Just look at your ${dev(s)}, Dave.`,al:"right"}],
   seq:[{f:"porter",t:"dave",l:"redirect → IdP",r:1},{f:"dave",t:"soso",l:"WebAuthn request · unsupported in mini-browser"}],next:"nPasskeyEnd"};
 N.nPasskeyEnd={end:1,narr:"Stuck at the booth.",loc:"id booth",bg:"booth",tag:"WebAuthn unavailable · the end",
   note:"Without a fallback method on the IdP (password, OTP), SSO can't complete inside the mini-browser. Escaping to a real browser is the fix.",
@@ -656,9 +659,9 @@ N.x4px={choice:"creds",narr:"Ida doesn't buy it.",loc:"at the members' door",bg:
   note:"The identity source refuses the login and password: RADIUS answers Access-Reject before any policy is looked at.",
   a:s=>doorCrew(null,null,"Ida says wrong password. No.").map(x=>x.k==="ray"?{...x,phone:true}:x),
   seq:s=>[{f:"soso",t:"ray",l:IDA_KO[s.idsrc],r:1},{f:"ray",t:"troller",l:"Access-Reject (EAP-Failure)",r:1}],next:"x6r"};
-N.x5b={choice:"nac",narr:"Ray knows that phone.",loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Reject (device blacklisted)",
+N.x5b={choice:"nac",narr:s=>`Ray knows that ${dev(s)}.`,loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Reject (device blacklisted)",
   note:"Identity and policy check out, but this device is blacklisted (or in quarantine) in Cloudi-Fi's device list: RADIUS rejects it anyway.",
-  a:doorCrew(null,null,"That phone is blacklisted. No."),
+  a:s=>doorCrew(null,null,`That ${dev(s)} is blacklisted. No.`),
   seq:[{f:"ray",t:"ray",l:"device security profile → blacklist"},{f:"ray",t:"troller",l:"Access-Reject (EAP-Failure)",r:1}],next:"x6r"};
 N.x4p={choice:"method",narr:"Dave whispers his password.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TTLS · password in the tunnel",
   note:"EAP-TTLS: only RADIUS shows a certificate. Inside the encrypted tunnel, the device sends a login and password, and RADIUS calls the identity source to check them.",
