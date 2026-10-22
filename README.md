@@ -4,7 +4,7 @@
 
 An interactive stick-figure comic about what a device goes through on a Cloudi-Fi captive-portal network: joining the Wi-Fi, the RADIUS check, getting an address, captive-portal detection, registration, and the final authorization that opens the Internet. Pick the phone, the controller vendor, the enforcement mode, the DHCP setup or the registration method, and the story changes with you, including the ways it goes wrong. The title picks the door: SSID_PARTY, the open network with its captive portal, or SSID_PARTY_SECURE 🔒, where 802.1X checks a certificate or a password before letting the device in, with no portal at all.
 
-There are 22 criteria. Together they give 180,519 valid configurations, which play out as 1,394 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
+There are 25 criteria. Together they give 389,903 valid configurations, which play out as 2,320 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
 
 **Live: https://cloudi-fi.github.io/ssid_party/**
 
@@ -19,11 +19,12 @@ The nightclub is the network. The hall is the walled garden, the dancefloor door
 | Ray Dius | the RADIUS server |
 | Dee Ashcipee | the DHCP server |
 | Cee Peahy | the Captive-Portal API (RFC 8908) |
-| Port Al | the captive portal |
+| Port Hal | the captive portal |
 | Ida Pee | the identity provider (SSO); on the 802.1X door, the directory RADIUS calls (LDAP, Entra ID or Cloudi-Fi guest accounts) |
 | Phyre Wall | the firewall |
+| Spencer | the sponsor who approves a guest |
 
-In the comic, the Cloudi-Fi logo before a name marks Cloudi-Fi's own services: Port Al, Cee Peahy, Ray Dius, and Dee Ashcipee when the DHCP is Cloudi-Fi's cloud DHCP. A cloud-shaped head marks a role played by a cloud service when customers also run it themselves: Phyre Wall as a cloud firewall, Dee Ashcipee as the cloud DHCP, Ida Pee as Entra ID. Characters that only exist in the cloud, such as Ray Dius or Port Al, keep a plain head: the logo already says where they live.
+In the comic, the Cloudi-Fi logo before a name marks Cloudi-Fi's own services: Port Hal, Cee Peahy, Ray Dius, and Dee Ashcipee when the DHCP is Cloudi-Fi's cloud DHCP. A cloud-shaped head marks a role played by a cloud service when customers also run it themselves: Phyre Wall as a cloud firewall, Dee Ashcipee as the cloud DHCP, Ida Pee as Entra ID. Characters that only exist in the cloud, such as Ray Dius or Port Hal, keep a plain head: the logo already says where they live.
 
 ## Four views of the same story
 

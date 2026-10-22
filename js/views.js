@@ -13,12 +13,28 @@ function panelSVG(id,st){
   for(const a of actors){ const b=V(a.b,st); if(b) s+=bubble(a.x,b,{kind:a.kind||"speech",align:a.al||"center",top:a.top||false,color:CH[a.k].color,shift:a.bx||0}); }
   return s+`</svg>`;
 }
-function titleSel(key){
-  const c=CHOICES[key], opts=optsFor(key,STATE), cur=opts.find(o=>o.v===STATE[key]);
+// a panel's own menu, when it has one: entries {title, t, set, on} that may set several criteria (Port Hal's first panel)
+const menuOf=id=>(id&&V(N[id].menu,STATE))||null;
+const setValue=set=>esc(JSON.stringify(set)).replace(/"/g,"&quot;");
+// an option's title as it reads once that option is picked (a title may depend on the criterion it belongs to)
+const optTitle=(key,o)=>{ const s={...STATE,[key]:o.v}; normalize(s); return V(o.title,s); };
+// a comic-only variant menu (easter egg): sets EGG, never the state
+function variantSel(id){
+  const v=N[id].variant, cur=v.opts.find(o=>o.v===EGG[v.key])||v.opts[0];
+  return `<span class="narr nsel"><span class="ntxt">${esc(NB(FULL(cur.title)))}<span class="caret" aria-hidden="true">▾</span></span><select class="wselect tsel" data-egg="${v.key}" aria-label="Change this step">${v.opts.map(o=>`<option value="${o.v}"${o===cur?" selected":""}>${esc(NB(FULL(o.title)))}</option>`).join("")}</select></span>`;
+}
+function titleSel(key,id){
+  const c=CHOICES[key], menu=menuOf(id);
+  if(menu){
+    const cur=menu.find(x=>x.on)||menu[0];
+    const body=menu.map(x=>`<option value="${setValue(x.set)}"${x.on?" selected":""}>${esc(NB(FULL(x.title)))}</option>`).join("");
+    return `<span class="narr nsel"><span class="ntxt">${esc(NB(FULL(cur.title)))}<span class="caret" aria-hidden="true">▾</span></span><select class="wselect tsel" id="wi-${key}" data-k="${key}" aria-label="Change this step (${esc(c.tq)})">${body}</select></span>`;
+  }
+  const opts=optsFor(key,STATE), cur=opts.find(o=>o.v===STATE[key]);
   let body="", g=null;
   for(const o of opts){
     if(o.group!==g){ if(g!==null) body+=`</optgroup>`; g=o.group; if(g) body+=`<optgroup label="${esc(g)}">`; }
-    body+=`<option value="${o.v}"${o.v===STATE[key]?" selected":""}>${esc(NB(FULL(V(o.title,STATE))))}</option>`;
+    body+=`<option value="${o.v}"${o.v===STATE[key]?" selected":""}>${esc(NB(FULL(optTitle(key,o))))}</option>`;
   }
   if(g) body+=`</optgroup>`;
   return `<span class="narr nsel"><span class="ntxt">${esc(NB(FULL(V(cur.title,STATE))))}<span class="caret" aria-hidden="true">▾</span></span><select class="wselect tsel" id="wi-${key}" data-k="${key}" aria-label="Change this step (${esc(c.tq)})">${body}</select></span>`;
@@ -42,7 +58,7 @@ function renderComic(){
   const ids=path(STATE);
   let h=ids.map((id,i)=>{ const p=N[id], ch=hasChoice(id,STATE);
     return `<figure class="panel" id="p-${id}" ${ch?`data-choice="${p.choice}"`:""}>
-      <div class="cap"><span class="pnum">${i+1}</span>${ch?titleSel(p.choice):`<span class="narr">${esc(NB(FULL(V(p.narr,STATE))))}</span>`}<span class="loc">${esc(p.loc)}</span></div>
+      <div class="cap"><span class="pnum">${i+1}</span>${ch?titleSel(p.choice,id):p.variant?variantSel(id):`<span class="narr">${esc(NB(FULL(V(p.narr,STATE))))}</span>`}<span class="loc">${esc(p.loc)}</span></div>
       ${panelSVG(id,STATE)}
       <div class="foot"><span class="tag">${tagHTML(tagOf(id,STATE))}</span><span class="note">${esc(NB(V(p.note,STATE)))}</span></div>
     </figure>`; }).join("");
@@ -56,9 +72,10 @@ function renderComic(){
 // lanes drawn in the sequence diagram: all of them with "Show criteria", otherwise only the actors in the story
 let SLANES=LANES, LGAP=108, SW=120+(LANES.length-1)*108;
 const LX=i=>60+i*LGAP;
-function chipSVG(x,y,label,key,val){
-  const w=label.length*6.1+18, on=STATE[key]===val;
-  return {w, svg:`<g class="wopt chip" data-k="${key}" data-v="${val}" role="button" tabindex="0" aria-pressed="${on}">
+// a choice chip; with `set` (an entry of a panel's own menu), a chip that sets those criteria, current when `cur`
+function chipSVG(x,y,label,key,val,set,cur){
+  const w=label.length*6.1+18, on=set?!!cur:STATE[key]===val;
+  return {w, svg:`<g class="wopt chip" ${set?`data-set="${setValue(set)}"`:`data-k="${key}" data-v="${val}"`} role="button" tabindex="0" aria-pressed="${on}">
     <rect x="${x}" y="${y}" width="${w}" height="18" rx="9" fill="${on?"var(--ink)":"var(--surface)"}" stroke="${on?"var(--ink)":"var(--ink-2)"}" stroke-width="1.2" ${on?"":'stroke-dasharray="3 2"'}/>
     <text x="${x+9}" y="${y+13}" font-family="var(--font-sans)" font-size="11" fill="${on?"var(--surface)":"var(--ink)"}">${esc(label)}</text></g>`};
 }
@@ -112,7 +129,7 @@ function renderSeq(){
       const lab=`[${c.tq}]`;
       chips+=`<text x="${hx}" y="${y+13}" font-family="var(--font-sans)" font-size="11" font-weight="500" fill="var(--ink)">${esc(lab)}</text>`;
       hx+=lab.length*6.4+10;
-      for(const o of optsFor(p.choice,STATE)){ let ch=chipSVG(hx,y,o.t,p.choice,o.v); if(hx+ch.w>SW-16){ y+=24; hx=58; ch=chipSVG(hx,y,o.t,p.choice,o.v);} chips+=ch.svg; hx+=ch.w+6; }
+      for(const o of menuOf(id)||optsFor(p.choice,STATE)){ let ch=chipSVG(hx,y,o.t,p.choice,o.v,o.set,o.on); if(hx+ch.w>SW-16){ y+=24; hx=58; ch=chipSVG(hx,y,o.t,p.choice,o.v,o.set,o.on);} chips+=ch.svg; hx+=ch.w+6; }
       y+=26;
       let msgs=""; for(const m of seq){ y+=rowH-8; msgs+=msgSVG(m,y); y+=8; }
       y+=12;
@@ -186,7 +203,7 @@ function layout(){
 }
 // a step is framed in the colour of the actor that handles it, as in the sequence-diagram lanes: the actor most present in
 // its messages besides the device (ties go to the more specific component); device-only steps get the device's colour
-const ACTOR_PRIO=["ray","dippy","chippy","soso","phyre","porter","troller"];
+const ACTOR_PRIO=["ray","dippy","chippy","soso","sponsor","phyre","porter","troller"];
 function stepActor(id,s){
   const cnt={}; for(const m of V(N[id].seq,s)||[]) for(const a of [m.f,m.t]) if(a!=="dave") cnt[a]=(cnt[a]||0)+1;
   const ks=Object.keys(cnt);
@@ -327,6 +344,9 @@ const CRIT=[
   {name:"visit",key:"visit",ctx:"user"},
   {name:"cna_done",key:"done",ctx:"user"},
   {name:"android_browse",key:"browse",ctx:"user"},
+  {name:"sponsor",key:"spauth",ctx:"user"},
+  {name:"sponsor_answer",key:"spans",ctx:"user"},
+  {name:"waits_for_sponsor",key:"spwait",ctx:"user"},
   {name:"sms_notification",key:"smsexit",ctx:"user"}
 ];
 const CRIT_BY_NAME=Object.fromEntries(CRIT.map(c=>[c.name,c]));

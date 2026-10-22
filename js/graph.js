@@ -1,6 +1,6 @@
 /* ---------- story graph: criteria, nodes, path resolution (no DOM) ---------- */
-const LANES=["dave","troller","phyre","ray","dippy","chippy","porter","soso"];
-const TECH={dave:"Device",troller:"Controller",phyre:"Firewall",ray:"RADIUS",dippy:"DHCP",chippy:"CPI",porter:"Portal",soso:"IdP (SSO)"};
+const LANES=["dave","troller","phyre","ray","dippy","chippy","porter","sponsor","soso"];
+const TECH={dave:"Device",troller:"Controller",phyre:"Firewall",ray:"RADIUS",dippy:"DHCP",chippy:"CPI",porter:"Portal",sponsor:"Sponsor",soso:"IdP (SSO)"};
 
 const CHOICES={
   // the network Dave joins, chosen in the page title: the open captive-portal SSID or the 802.1X one
@@ -46,15 +46,28 @@ const CHOICES={
     {v:"first",label:"is here for the first time",t:"first visit",when:s=>s.os==="ios"&&s.o114==="yes"},
     {v:"returning",label:"comes back after a CNA bypass",t:"returning · iOS remembers 'not captive'",when:s=>s.os==="ios"&&s.o114==="yes"}]},
   done:{q:"What if Dave…",tq:"CNA 'Done' button",opts:[
-    {v:"no",label:"taps Port Al's button",t:"portal button",when:s=>s.os!=="iot"},
+    {v:"no",label:"taps Port Hal's button",t:"portal button",when:s=>s.os!=="iot"},
     {v:"yes",label:"taps 'Done' instead",t:"taps 'Done'",when:s=>s.os!=="iot"}]},
-  reg:{q:"What if Port Al…",tq:"Registration method",opts:[
+  reg:{q:"What if Port Hal…",tq:"Registration method",opts:[
     {when:s=>s.os!=="iot",v:"form",label:"only asks for a form",t:"declarative form"},
     {when:s=>s.os!=="iot",v:"sms",label:"sends a code by SMS",t:"SMS OTP"},
     {when:s=>s.os!=="iot",v:"email",label:"emails credentials",t:"credentials by email"},
+    {when:s=>s.os!=="iot",v:"sponsor",label:"asks a sponsor to approve Dave",t:"sponsor approval"},
     {when:s=>s.os!=="iot",v:"sso",label:"offers SSO with Ida Pee",t:"SSO"},
     {when:s=>s.os!=="iot",v:"mfa",label:"offers SSO with a second factor",t:"SSO + MFA app"},
     {when:s=>s.os!=="iot",v:"passkey",label:"offers SSO with Face ID / Touch ID",t:"SSO + passkey (WebAuthn)"}]},
+  // the sponsor (Spencer): contacted by email with a link to an approval page, where he picks Dave's profile
+  // what Spencer does with the email: opens the link, signs in with the IdP first (if the customer requires it), or nothing
+  spauth:{q:"What if Spencer…",tq:"Sponsor",opts:[
+    {v:"none",label:"opens the approval link as is",t:"opens the link",when:s=>s.os!=="iot"&&s.reg==="sponsor"},
+    {v:"sso",label:"signs in with the company IdP first",t:"signs in first (SAML)",when:s=>s.os!=="iot"&&s.reg==="sponsor"},
+    {v:"silent",label:"is in a meeting and never answers",t:"no answer",when:s=>s.os!=="iot"&&s.reg==="sponsor"}]},
+  spans:{q:"What if Spencer…",tq:"Sponsor's answer",opts:[
+    {v:"approve",label:"approves Dave and picks his profile",t:"approves · profile",when:s=>s.os!=="iot"&&s.reg==="sponsor"&&s.spauth!=="silent"},
+    {v:"refuse",label:"refuses",t:"refuses",when:s=>s.os!=="iot"&&s.reg==="sponsor"&&s.spauth!=="silent"}]},
+  spwait:{q:"What if Dave…",tq:"While the sponsor decides",opts:[
+    {v:"stays",label:"waits on the page",t:"stays on the page",when:s=>s.os!=="iot"&&s.reg==="sponsor"&&s.spauth!=="silent"&&s.spans==="approve"},
+    {v:"leaves",label:"wanders off in the meantime",t:"leaves the page",when:s=>s.os!=="iot"&&s.reg==="sponsor"&&s.spauth!=="silent"&&s.spans==="approve"}]},
   smsexit:{q:"What if Dave…",tq:"SMS notification",opts:[
     {when:s=>s.os!=="iot",v:"type",label:"types the code right in the portal",t:"types code"},
     {when:s=>s.os!=="iot",v:"tap",label:"taps the SMS notification",t:"taps notification"}]},
@@ -88,7 +101,7 @@ const CHOICES={
     {v:"zscaler",label:"Zscaler",t:"Zscaler",when:s=>s.integ==="cloud",group:"Cloud · SAML IdP-initiated (Zscaler) / SP-initiated (Netskope), IP surrogate"},
     {v:"netskope",label:"Netskope",t:"Netskope",when:s=>s.integ==="cloud",group:"Cloud · SAML IdP-initiated (Zscaler) / SP-initiated (Netskope), IP surrogate"},
     {v:"fortigate",label:"FortiGate",t:"FortiGate",when:s=>fwL(s),group:"On site · external captive portal + RADIUS"}]},
-  transient:{q:"What if Port Al…",tq:"Portal · transient profile",opts:[
+  transient:{q:"What if Port Hal…",tq:"Portal · transient profile",opts:[
     {when:s=>s.os!=="iot",v:"no",label:"shows the form right away",t:"classic"},
     {when:s=>s.os!=="iot",v:"yes",label:"hands out a transient pass first",t:"transient"}]},
   // last: whether the story reaches this step depends on most criteria above
@@ -98,7 +111,7 @@ const CHOICES={
 };
 // the 802.1X SSID has no captive portal: the portal-side criteria don't apply there (normalize resets them to their default)
 const secure=s=>s.ssid==="secure";
-const OPEN_ONLY=["dhcp","hack","snooping","o114","visit","done","reg","smsexit","browse","integ","mlogin","radius","qpolicy","fwvendor","transient"];
+const OPEN_ONLY=["dhcp","hack","snooping","o114","visit","done","reg","smsexit","browse","spauth","spans","spwait","integ","mlogin","radius","qpolicy","fwvendor","transient"];
 for(const k of OPEN_ONLY) for(const o of CHOICES[k].opts){ const w=o.when; o.when=w?s=>!secure(s)&&w(s):s=>!secure(s); }
 // links shared before MAB moved to the enforcement criterion: rewrite old hash values in place
 function legacyHash(h){
@@ -109,12 +122,12 @@ function legacyHash(h){
     if(!i||i==="radius") h.set("integ","controllerMab"); else if(i==="fwLocal"||i==="fwBoth") h.set("integ",i+"Mab");
   } else if(i==="radius") h.set("integ","controllerMab");
 }
-const DEF={ssid:"open",os:"ios",method:"tls",idsrc:"ldap",creds:"ok",nac:"allow",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"form",smsexit:"type",browse:"stay"};
+const DEF={ssid:"open",os:"ios",method:"tls",idsrc:"ldap",creds:"ok",nac:"allow",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"form",smsexit:"type",browse:"stay",spauth:"none",spans:"approve",spwait:"stays"};
 const TITLES={
   os:{ios:"An iPhone rolls up to the club.",android:"An Android phone rolls up to the club.",iot:"A network printer rolls up to the club."},
   radius:{unknown:s=>merakiMab(s)?"Ray lets him through anyway.":s.integ==="mabOnly"?"Ray doesn't know him — out.":"Ray says no.",known:"Ray already knows Dave."},
   qpolicy:{defined:"Conn shrugs and waves him in.",missing:"Conn turns him away."},
-  mlogin:{grant:"Port Al's word is enough.",radius:"One last double-check."},
+  mlogin:{grant:"Port Hal's word is enough.",radius:"One last double-check."},
   dhcp:{ok:"Dee hands him an address.",conflict:"Dee remembers him — new address.",exhausted:"Dee is out of addresses.",quarantine:"Dee, from the cloud, puts him in quarantine.",whitelist:"Dee, from the cloud, has him on the whitelist.",blacklist:"Dee, from the cloud, has him on the blacklist.",zombies:"Dee, from the cloud, is out of addresses — zombies."},
   hack:{no:"Dave keeps asking, forever.",yes:"Dave picks his own address."},
   method:{tls:"Dave shows his own certificate.",ttls:"Dave whispers his password."},
@@ -124,13 +137,16 @@ const TITLES={
   visit:{first:"Dave checks the kiosk.",returning:"Dave doesn't bother checking."},
   snooping:{no:s=>`${greetK(s)==="phyre"?"Phyre Wall":"Conn Troller"} doesn't notice the new address.`,yes:s=>`${greetK(s)==="phyre"?"Phyre Wall":"Conn Troller"} drops the unlearned address.`},
   o114:{yes:"Dee adds a note to the ticket.",no:"No note this time."},
-  done:{no:"Dave taps Port Al's button.",yes:"Dave taps 'Done' instead."},
-  reg:{sso:"Single sign-on with Ida Pee.",mfa:"Ida Pee wants a second factor.",passkey:"Ida Pee asks for a glance.",form:"Dave fills in the form.",sms:"A text message arrives.",email:"Credentials by email."},
+  done:{no:"Dave taps Port Hal's button.",yes:"Dave taps 'Done' instead."},
+  reg:{form:"Port Hal hands over a form.",sms:"Port Hal asks for a phone number.",email:"Port Hal asks for an email address.",sponsor:"Port Hal asks for a sponsor.",sso:"Port Hal offers SSO with Ida Pee.",mfa:"Port Hal offers SSO, with a second factor.",passkey:"Port Hal offers SSO with Face ID."},
   smsexit:{type:"Dave types the code.",tap:"Dave taps the notification."},
+  spauth:{none:"Spencer opens the link.",sso:"Spencer checks in with Ida Pee.",silent:"Spencer is in a meeting."},
+  spans:{approve:"Spencer says yes.",refuse:"Spencer says no."},
+  spwait:{stays:"Dave waits at the desk.",leaves:"Dave wanders off."},
   browse:{stay:"Dave waits for something to happen.",http:"Dave tries 3wi.fi himself."},
   integ:{controller:s=>usesRadius(s)?"Conn doesn't even ask Ray.":"Conn skips the list.",controllerMab:"Conn checks with the list.",mabOnly:"Conn checks with the list — MAB-only SSID, no portal.",fwLocal:"Conn steps aside — Phyre Wall, on site, doesn't even ask Ray.",fwLocalMab:"Conn steps aside — Phyre Wall, on site, checks with the list.",fwBothMab:"Phyre Wall does it all — and checks with the list.",fwBoth:"Phyre Wall does it all — and doesn't even ask Ray.",cloud:"Conn waves everyone in — Phyre Wall checks from the cloud."},
   fwvendor:{zscaler:"Phyre Wall is a Zscaler.",netskope:"Phyre Wall is a Netskope.",fortigate:"Phyre Wall is a FortiGate."},
-  transient:{no:"Port Al shows the form right away.",yes:"Port Al hands out a visitor pass."},
+  transient:{no:"Port Hal shows the form right away.",yes:"Port Hal hands out a visitor pass."},
   vendor:Object.fromEntries([["cisco-wlc","a Cisco WLC"],["aruba","an Aruba"],["meraki","a Meraki"],["mist","a Juniper Mist"],["ruckus-ap","a Ruckus AP"],["ruckus-smartzone","a Ruckus SmartZone"],["fortigate","a FortiGate"]].map(([v,n])=>[v,s=>secure(s)?`Dave gives his name to ${n}.`:`Dave hands his MAC to ${n}.`]))
 };
 for(const k in TITLES) CHOICES[k].opts.forEach(o=>o.title=TITLES[k][o.v]);
@@ -297,14 +313,14 @@ N.nStale={end:1,choice:"visit",narr:"Dave doesn't bother checking.",loc:"the kio
   a:[{k:"dave",x:130,b:"This place was fine last time.",kind:"think",al:"left",zombie:true},{k:"chippy",x:320,mood:"flat"}],
   seq:[{f:"dave",t:"dave",l:"no probe · no CPI call (network remembered as not captive)"}]};
 N.n8={choice:"visit",narr:"Dave checks the kiosk.",loc:"the kiosk",bg:"kiosk",tag:"CPI · captive:true",note:s=>`CPI requests carry no cookie: the device is identified by the URL from the DHCP note (option 114), which has its MAC and IP written in it. The API answers captive:true and points to the portal URL — that first captive:true is what makes the OS open ${mini(s)}.`,
-  a:[{k:"dave",x:130,b:"Hi Cee — can't tell you who I am, but Dee Ashcipee's note can. Dancefloor yet?",al:"left"},{k:"chippy",x:320,b:"Hi Dave, you're captive. Please see Port Al.",al:"right"}],
+  a:[{k:"dave",x:130,b:"Hi Cee — can't tell you who I am, but Dee Ashcipee's note can. Dancefloor yet?",al:"left"},{k:"chippy",x:320,b:"Hi Dave, you're captive. Please see Port Hal.",al:"right"}],
   seq:s=>[{f:"dave",t:"chippy",l:"GET CPI URL (MAC, IP)"},{f:"chippy",t:"dave",l:"{captive: true, user-portal-url}",r:1},{f:"dave",t:"dave",l:ios(s)?"captive:true → iOS opens the CNA":"captive:true → Android opens its sign-in app"}],next:"dEnf1"};
 N.n8m={narr:"Cee waves him on.",loc:"the kiosk",bg:"kiosk",tag:"CPI · captive:false",note:"CPI requests carry no cookie: the URL from the DHCP note, with Dave's MAC and IP in it, identifies the device. The role is already full, so the API answers captive:false — no portal at all.",
   a:[{k:"dave",x:130,b:"Hi Cee — can't tell you who I am, but Dee Ashcipee's note can. Dancefloor yet?",al:"left"},{k:"chippy",x:320,b:"You're free, Dave. Go dance!",al:"right"}],
   seq:[{f:"dave",t:"chippy",l:"GET CPI URL (MAC, IP)"},{f:"chippy",t:"dave",l:"{captive: false}",r:1}],next:"n19m"};
 N.n9={narr:"He lines up at the welcome desk.",loc:"reception",bg:"kiosk-reception",tag:"Portal (mini-browser) · poll",
   note:s=>`${ios(s)?"The CNA mini-browser":"Android's sign-in app"} opens the portal URL (which carries Dave's MAC) and the page polls for a verdict.`,
-  a:[{k:"chippy",x:70},{k:"dave",x:200,b:"Hi Port Al — what now?",al:"center"},{k:"porter",x:355,b:"Hi Dave, wait a sec while I update your captive state...",al:"right",headSpin:true}],
+  a:[{k:"chippy",x:70},{k:"dave",x:200,b:"Hi Port Hal — what now?",al:"center"},{k:"porter",x:355,b:"Hi Dave, wait a sec while I update your captive state...",al:"right",headSpin:true}],
   seq:s=>[{f:"dave",t:"porter",l:`${ios(s)?"CNA":"sign-in app"}: GET user-portal-url`},{f:"porter",t:"dave",l:"waiting page (polls backend)",r:1}],next:"n10"};
 N.n10={narr:"...and keeps pestering the kiosk.",loc:"the kiosk",bg:"kiosk-reception",tag:"CPI · poll loop",note:"In parallel the OS keeps polling the Captive Portal API for a state change.",
   a:[{k:"chippy",x:70},{k:"dave",x:200,b:"Yo Cee — now?",al:"center"},{k:"porter",x:355,headSpin:true}],
@@ -317,7 +333,7 @@ N.n11a={narr:"The app closes itself.",loc:"reception",bg:"reception",tag:"CPI ·
   a:[{k:"chippy",x:90,b:"You're clear!",al:"left"},{k:"dave",x:226,b:"...wait, where did the portal go?",al:"center",nophone:true},{k:"porter",x:330}],
   seq:[{f:"porter",t:"chippy",l:"set captive = false for MAC"},{f:"dave",t:"chippy",l:"GET CPI URL (poll)"},{f:"chippy",t:"dave",l:"{captive: false}",r:1},{f:"dave",t:"dave",l:"sign-in app closes automatically"}],next:"dBrowse"};
 N.dDone={dec:"Taps 'Done'?",next:{k:"done",map:{no:"n12",yes:"n12d"}}};
-N.n12={choice:"done",narr:"Dave thinks he's done.",loc:"in the hall",bg:"dance-door",tag:"CNA closed → Safari",note:"Port Al's button closes the mini-browser and opens the real browser (Safari).",
+N.n12={choice:"done",narr:"Dave thinks he's done.",loc:"in the hall",bg:"dance-door",tag:"CNA closed → Safari",note:"Port Hal's button closes the mini-browser and opens the real browser (Safari).",
   a:[{k:"dave",x:210,b:"Not captive anymore? Let's go to 3wi.fi now!",kind:"think",al:"center"}],
   seq:[{f:"dave",t:"dave",l:"CNA closes · opens Safari"}],next:"dEnf2"};
 N.n12d={choice:"done",narr:"Dave taps Done.",loc:"reception",bg:"reception",tag:"CNA · 'Done' tapped",note:"The CNA closes and nothing opens: iOS now believes the network is open and won't show the portal again.",
@@ -347,29 +363,33 @@ N.n13n={narr:"Caught red-handed.",loc:"in the hall",bg:"dance-door",tag:"Control
   a:s=>[{k:"troller",x:120,b:"WHERE YOU GOING, DAVE?",kind:"shout",mood:"open",al:"left"},{k:"dave",x:315,b:ios(s)?"...captive.apple.com?":"...connectivity check?",mood:"flat",al:"right"}],
   seq:s=>[{f:"dave",t:"troller",l:ios(s)?"GET captive.apple.com":"GET connectivitycheck.gstatic.com"}],next:"n14b"};
 N.n14={narr:"Back to the desk — for real.",loc:"in the hall",bg:"dance-door",tag:"HTTP 302 → portal",note:"Unregistered traffic is redirected to the registration page.",
-  a:[{k:"troller",x:120,b:"First register with Port Al, Dave.",al:"left"},{k:"dave",x:315,mood:"flat"}],
+  a:[{k:"troller",x:120,b:"First register with Port Hal, Dave.",al:"left"},{k:"dave",x:315,mood:"flat"}],
   seq:[{f:"troller",t:"dave",l:"HTTP 302 → portal URL",r:1}],next:"n15"};
 N.n14b=C(N.n14,{next:"n15n"});
 
-const ASK={sso:"Fill this in — or use Ida Pee.",mfa:"Fill this in — or use Ida Pee.",passkey:"Fill this in — or use Ida Pee.",form:"Just fill in this form.",sms:"Your phone number, please.",email:"Your email? I'll send your credentials."};
-const ASK_HI={sso:"Hi Dave, fill this in — or use Ida Pee.",mfa:"Hi Dave, fill this in — or use Ida Pee.",passkey:"Hi Dave, fill this in — or use Ida Pee.",form:"Hi Dave, just fill in this form.",sms:"Hi Dave, your phone number, please.",email:"Hi Dave, your email? I'll send your credentials."};
+const ASK={sso:"Fill this in — or use Ida Pee.",mfa:"Fill this in — or use Ida Pee.",passkey:"Fill this in — or use Ida Pee.",form:"Just fill in this form.",sms:"Your phone number, please.",email:"Your email? I'll send your credentials.",sponsor:"Fill this in, and name your sponsor."};
+const ASK_HI={sso:"Hi Dave, fill this in — or use Ida Pee.",mfa:"Hi Dave, fill this in — or use Ida Pee.",passkey:"Hi Dave, fill this in — or use Ida Pee.",form:"Hi Dave, just fill in this form.",sms:"Hi Dave, your phone number, please.",email:"Hi Dave, your email? I'll send your credentials.",sponsor:"Hi Dave, fill this in, and name your sponsor."};
 const portalAsk=(s,hi)=>(hi?ASK_HI:ASK)[s.reg];
-N.n15={narr:"Port Al hands over a form.",loc:"reception",bg:"reception",tag:"Portal · registration",
+N.n15={choice:"reg",narr:"Port Hal hands over a form.",loc:"reception",bg:"reception",tag:"Portal · registration",
   note:s=>`The registration page loads in ${br(s)} — a full browser.`,
-  a:s=>[{k:"dave",x:130,b:"Yo Port Al, I'm back.",al:"left"},{k:"porter",x:320,b:portalAsk(s,false),al:"right"}],
+  a:s=>[{k:"dave",x:130,b:"Yo Port Hal, I'm back.",al:"left"},{k:"porter",x:320,b:portalAsk(s,false),al:"right"}],
   seq:s=>[{f:"dave",t:"porter",l:`GET portal (${br(s)})`},{f:"porter",t:"dave",l:"registration page",r:1}],next:"dRegB"};
-N.n15n={choice:"transient",choiceIf:s=>cloud(s),narr:"Port Al hands over a form.",loc:"reception",bg:"reception",tag:"Portal · registration (mini-browser)",
+// the registration method is Port Hal's call, so it is chosen where he presents it. Behind a cloud firewall, the first panel
+// at his desk always offers the same menu: the methods, then the transient visitor pass (two criteria in one menu)
+const portalMenu=s=>[...optsFor("reg",s).map(o=>({title:V(o.title,{...s,reg:o.v,transient:"no"}),t:o.t,set:{reg:o.v,transient:"no"},on:!trans(s)&&s.reg===o.v})),
+  {title:"Port Hal hands out a visitor pass.",t:"transient pass",set:{transient:"yes"},on:trans(s)}];
+N.n15n={choice:"reg",menu:s=>cloud(s)?portalMenu(s):null,narr:"Port Hal hands over a form.",loc:"reception",bg:"reception",tag:"Portal · registration (mini-browser)",
   note:s=>ios(s)?"The form loads in the CNA mini-browser — not in Safari.":"The form loads in Android's sign-in app — not in Chrome.",
-  a:s=>[{k:"dave",x:130,b:"Hi Port Al, I'm Dave.",al:"left"},{k:"porter",x:320,b:portalAsk(s,true),al:"right"}],
+  a:s=>[{k:"dave",x:130,b:"Hi Port Hal, I'm Dave.",al:"left"},{k:"porter",x:320,b:portalAsk(s,true),al:"right"}],
   seq:s=>[{f:"dave",t:"porter",l:`GET portal (${ios(s)?"CNA":"sign-in app"})`},{f:"porter",t:"dave",l:"registration page",r:1}],next:"dRegC"};
 
 /* --- registration in a full browser --- */
-N.dRegB={dec:"Registration method?",next:{k:"reg",map:{sso:"n16",mfa:"n16M",passkey:"n16P",form:"n16f",sms:"n16s",email:"n16e"}}};
-N.n16={choice:"reg",narr:"Single sign-on with Ida Pee.",loc:"id booth",bg:"booth",tag:"SSO · SAML / OIDC",note:"The identity provider authenticates the user and returns an assertion.",
-  a:[{k:"dave",x:130,b:"Hi Ida, Port Al wants you to confirm I'm Dave",al:"left"},{k:"soso",x:330,b:"Hi Dave, confirmed, you're Dave",al:"right"}],
+N.dRegB={dec:"Registration method?",next:{k:"reg",map:{sso:"n16",mfa:"n16M",passkey:"n16P",form:"n16f",sms:"n16s",email:"n16e",sponsor:"sp1"}}};
+N.n16={narr:"Single sign-on with Ida Pee.",loc:"id booth",bg:"booth",tag:"SSO · SAML / OIDC",note:"The identity provider authenticates the user and returns an assertion.",
+  a:[{k:"dave",x:130,b:"Hi Ida, Port Hal wants you to confirm I'm Dave",al:"left"},{k:"soso",x:330,b:"Hi Dave, confirmed, you're Dave",al:"right"}],
   seq:[{f:"porter",t:"dave",l:"redirect → IdP",r:1},{f:"dave",t:"soso",l:"auth request + login"},{f:"soso",t:"dave",l:"signed assertion",r:1}],next:"n17"};
-N.n16M={choice:"reg",narr:"Ida Pee wants a second factor.",loc:"id booth",bg:"booth",tag:"SSO · MFA requested",note:"The IdP asks for a second factor in an external app (TOTP code or push).",
-  a:[{k:"dave",x:130,b:"Hi Ida, Port Al wants you to confirm I'm Dave",al:"left"},{k:"soso",x:330,b:"Sure — confirm in your authenticator app.",al:"right"}],
+N.n16M={narr:"Ida Pee wants a second factor.",loc:"id booth",bg:"booth",tag:"SSO · MFA requested",note:"The IdP asks for a second factor in an external app (TOTP code or push).",
+  a:[{k:"dave",x:130,b:"Hi Ida, Port Hal wants you to confirm I'm Dave",al:"left"},{k:"soso",x:330,b:"Sure — confirm in your authenticator app.",al:"right"}],
   seq:[{f:"porter",t:"dave",l:"redirect → IdP",r:1},{f:"dave",t:"soso",l:"auth request + login"},{f:"soso",t:"dave",l:"MFA challenge (external app)",r:1}],next:"n16Mb"};
 N.n16Mb={narr:"Dave grabs his authenticator.",loc:"id booth",bg:"booth",tag:"MFA · app switch (browser)",note:"In a full browser, switching apps is harmless: the page waits for Dave to come back.",
   a:[{k:"dave",x:130,b:"One sec, opening my authenticator...",al:"left"},{k:"soso",x:330,b:"Take your time.",al:"right"}],
@@ -377,10 +397,10 @@ N.n16Mb={narr:"Dave grabs his authenticator.",loc:"id booth",bg:"booth",tag:"MFA
 N.n16Mc={narr:"Second factor accepted.",loc:"id booth",bg:"booth",tag:"SSO · assertion (after MFA)",note:"With the second factor done, the IdP returns the assertion.",
   a:[{k:"dave",x:130,b:"Code's 482 913.",al:"left"},{k:"soso",x:330,b:"Hi Dave, confirmed, you're Dave",al:"right"}],
   seq:[{f:"soso",t:"dave",l:"signed assertion",r:1}],next:"n17"};
-N.n16f={choice:"reg",narr:"Dave fills in the form.",loc:"reception",bg:"reception",tag:"Portal · declarative form",note:"No external step at all: the simplest registration.",
+N.n16f={narr:"Dave fills in the form.",loc:"reception",bg:"reception",tag:"Portal · declarative form",note:"No external step at all: the simplest registration.",
   a:[{k:"dave",x:130,b:"Name, email... done!",al:"left"},{k:"porter",x:320,b:"Thanks, Dave!",al:"right"}],
   seq:[{f:"dave",t:"porter",l:"POST form (name, email)"}],next:"n17"};
-N.n16s={choice:"reg",narr:"A text message arrives.",loc:"reception",bg:"reception",tag:"Portal · SMS OTP sent",note:"The portal sends a one-time code by SMS; a notification pops up on top of the page.",
+N.n16s={narr:"A text message arrives.",loc:"reception",bg:"reception",tag:"Portal · SMS OTP sent",note:"The portal sends a one-time code by SMS; a notification pops up on top of the page.",
   a:[{k:"dave",x:130,b:"Bzzz — got a text!",al:"left"},{k:"porter",x:320,b:"Type the code I just sent.",al:"right"}],
   seq:[{f:"dave",t:"porter",l:"POST phone number"},{f:"porter",t:"dave",l:"SMS with one-time code",r:1}],next:"dSmsB"};
 N.dSmsB={dec:"SMS notification?",next:{k:"smsexit",map:{type:"n16st",tap:"n16sT"}}};
@@ -391,7 +411,7 @@ N.n16sT={choice:"smsexit",narr:"Dave taps the notification.",loc:"reception",bg:
   note:s=>`In ${br(s)}, a detour through Messages is harmless: the page and the Wi-Fi are still there when Dave comes back.`,
   a:[{k:"dave",x:130,b:"Off to Messages... and back! Code: 4821.",al:"left"},{k:"porter",x:320,b:"Correct — and you never left!",al:"right"}],
   seq:[{f:"dave",t:"dave",l:"opens Messages and comes back"},{f:"dave",t:"porter",l:"POST OTP"}],next:"n17"};
-N.n16e={choice:"reg",narr:"Credentials by email.",loc:"reception",bg:"reception",tag:"Portal · credentials emailed",note:"The portal emails a username and password: Dave has to read them in his mail app.",
+N.n16e={narr:"Credentials by email.",loc:"reception",bg:"reception",tag:"Portal · credentials emailed",note:"The portal emails a username and password: Dave has to read them in his mail app.",
   a:[{k:"dave",x:130,b:"Checking my inbox...",al:"left"},{k:"porter",x:320,b:"Sent! Then log in here.",al:"right"}],
   seq:[{f:"dave",t:"porter",l:"POST email address"},{f:"porter",t:"dave",l:"email with credentials",r:1}],next:"n16e2"};
 N.n16e2={narr:"Back with his password.",loc:"reception",bg:"reception",tag:"Portal · login (credentials)",note:"In a full browser, Dave can switch to his mail app and come back: the page is still there.",
@@ -402,10 +422,10 @@ N.n16e2={narr:"Back with his password.",loc:"reception",bg:"reception",tag:"Port
 const exitPanel=(narr,why)=>({narr,loc:"outside",bg:"door",tag:"iOS · CNA left → SSID dropped",note:"Leaving the CNA on iOS drops the captive network: Dave is back outside and the portal session is gone.",
   a:[{k:"dave",x:170,b:"That's not what I meant to do...",kind:"think",al:"left",mood:"flat"},{k:"troller",x:340,b:"Leaving us already?",al:"right"}],
   seq:[{f:"dave",t:"dave",l:why},{f:"dave",t:"troller",l:"disassociation (leaves SSID)"}]});
-N.dRegC={dec:"Registration method?",next:{k:"reg",map:{sso:"n16n",mfa:"n16nM",passkey:"n16nP",form:"n16nf",sms:"n16ns",email:"n16ne"}}};
-N.n16n=C(N.n16,{choice:"reg",tag:"SSO · inside the mini-browser",note:"SSO in the mini-browser: cookies, saved passwords and passkeys may not work as well as in a full browser.",
+N.dRegC={dec:"Registration method?",next:{k:"reg",map:{sso:"n16n",mfa:"n16nM",passkey:"n16nP",form:"n16nf",sms:"n16ns",email:"n16ne",sponsor:"sp1"}}};
+N.n16n=C(N.n16,{tag:"SSO · inside the mini-browser",note:"SSO in the mini-browser: cookies, saved passwords and passkeys may not work as well as in a full browser.",
   seq:[{f:"porter",t:"dave",l:"redirect → IdP",r:1},{f:"dave",t:"soso",l:"auth request + login (mini-browser)"},{f:"soso",t:"dave",l:"signed assertion",r:1}]});
-N.n16nM=C(N.n16M,{choice:"reg",tag:"SSO · MFA requested (mini-browser)",note:"The IdP asks for a second factor in an external app — from inside the mini-browser.",next:"n16nMb"});
+N.n16nM=C(N.n16M,{tag:"SSO · MFA requested (mini-browser)",note:"The IdP asks for a second factor in an external app — from inside the mini-browser.",next:"n16nMb"});
 N.n16nMb=C(N.n16Mb,{tag:"MFA · app switch (mini-browser)",
   note:s=>ios(s)?"To read the code, Dave has to leave the CNA...":"Android keeps the sign-in app and the connection while Dave switches apps.",
   seq:[{f:"dave",t:"dave",l:"switches to authenticator app"}],next:"dOsM"});
@@ -416,8 +436,8 @@ N.nMfaEnd={end:1,narr:"Approved... too late.",loc:"outside",bg:"door",tag:"MFA l
   seq:[{f:"dave",t:"dave",l:"approves MFA over 4G/5G"},{f:"dave",t:"troller",l:"re-association · journey restarts"}]};
 N.n16nMc=C(N.n16Mc,{tag:"SSO · assertion (after MFA)",note:"On Android, switching apps doesn't drop the Wi-Fi: Dave comes back from his authenticator and the sign-in app is still there.",
   a:[{k:"dave",x:130,b:"Back from my authenticator — still connected!",al:"left"},{k:"soso",x:330,b:"Hi Dave, confirmed, you're Dave",al:"right"}],seq:[{f:"dave",t:"soso",l:"second factor (TOTP / push)"},{f:"soso",t:"dave",l:"signed assertion",r:1}]});
-N.n16nf=C(N.n16f,{choice:"reg",tag:"Portal · declarative form (mini-browser)",note:"Even in the mini-browser, nothing forces Dave to leave: the simplest registration."});
-N.n16ns=C(N.n16s,{choice:"reg",tag:"Portal · SMS OTP sent (mini-browser)",
+N.n16nf=C(N.n16f,{tag:"Portal · declarative form (mini-browser)",note:"Even in the mini-browser, nothing forces Dave to leave: the simplest registration."});
+N.n16ns=C(N.n16s,{tag:"Portal · SMS OTP sent (mini-browser)",
   note:s=>ios(s)?"A notification pops up over the CNA — very tempting to tap it.":"A notification pops up over Android's sign-in app.",next:"dSms"});
 N.dSms={dec:"SMS notification?",next:{k:"smsexit",map:{type:"n16nst",tap:"dOsS"}}};
 N.dOsS={dec:"Device OS?",next:{k:"os",map:{ios:"nExitS",android:"n16nsT"}}};
@@ -429,7 +449,7 @@ N.n16nsT=C(N.n16sT,{tag:"Portal · OTP after app switch (sign-in app)",
 N.n16sr={narr:"Round two.",loc:"reception",bg:"reception",tag:"Portal · OTP recycling",note:"Dave rejoins and the captive journey restarts; the portal lets him reuse the code he already received.",
   a:[{k:"dave",x:130,b:"I'm back — code 4821, still good?",al:"left"},{k:"porter",x:320,b:"Yep, recycled. Welcome!",al:"right"}],
   seq:[{f:"dave",t:"dave",l:"re-joins SSID · journey restarts"},{f:"dave",t:"porter",l:"POST same OTP"},{f:"porter",t:"dave",l:"accepted (code recycled)",r:1}],next:"n17"};
-N.n16ne=C(N.n16e,{choice:"reg",tag:"Portal · credentials emailed (mini-browser)",
+N.n16ne=C(N.n16e,{tag:"Portal · credentials emailed (mini-browser)",
   note:s=>`The portal emails a username and password: Dave has to read them in his mail app — outside ${mini(s)}.`,next:"dOsE"});
 N.dOsE={dec:"Device OS?",next:{k:"os",map:{ios:"nExitE",android:"n16ne2"}}};
 N.nExitE=C(exitPanel("Off to read his mail.","leaves CNA for mail app"),{next:"n16er"});
@@ -441,15 +461,15 @@ N.n16ne2=C(N.n16e2,{tag:"Portal · login (credentials)",note:"On Android, switch
 
 N.n17={narr:"Verified — here's your badge.",loc:"reception",bg:"reception",tag:"Portal · auth success",
   note:s=>fwL(s)?"The portal validates the registration and hands Dave credentials to present to the on-site firewall.":urlHandback(s)?(s.vendor==="mist"?"The portal validates the registration and sends Dave back to Mist with a signed authorization URL — no RADIUS involved.":"The portal validates the registration and sends Dave back to Meraki's grant URL — no RADIUS involved."):cloud(s)?`Acting as ${FWN(s)}'s identity provider, the portal sends Dave back with a SAML assertion for Phyre Wall (${zs(s)?"IdP-initiated":"SP-initiated"}).`:s.vendor==="ruckus-smartzone"?"The portal validates the registration and calls the controller's northbound API to authorize the session.":sso(s)?"The portal validates the assertion and hands Dave credentials to present to the controller.":"The portal validates the registration and hands Dave credentials to present to the controller.",
-  a:s=>[{k:"dave",x:130,b:({sso:"Ida Pee vouched. In now?",mfa:"Ida Pee vouched. In now?",passkey:"Ida Pee vouched. In now?",form:"All filled in. In now?",sms:"Code accepted. In now?",email:"Logged in. In now?"})[s.reg],al:"left",band:"--band-green"},{k:"porter",x:320,b:s=>urlHandback(s)?(s.vendor==="mist"?"Badge's yours — and a stamp. Show Conn Troller.":"Badge's yours. Tell Conn I said so."):s.vendor==="ruckus-smartzone"&&ctrlLike(s)?"Badge's yours. I'll call Conn Troller myself.":ctrlLike(s)?"Badge's yours. See Conn Troller.":"Badge's yours. Show Phyre Wall.",al:"right"}],
+  a:s=>[{k:"dave",x:130,b:({sso:"Ida Pee vouched. In now?",mfa:"Ida Pee vouched. In now?",passkey:"Ida Pee vouched. In now?",form:"All filled in. In now?",sms:"Code accepted. In now?",email:"Logged in. In now?",sponsor:"Spencer vouched. In now?"})[s.reg],al:"left",band:"--band-green"},{k:"porter",x:320,b:s=>urlHandback(s)?(s.vendor==="mist"?"Badge's yours — and a stamp. Show Conn Troller.":"Badge's yours. Tell Conn I said so."):s.vendor==="ruckus-smartzone"&&ctrlLike(s)?"Badge's yours. I'll call Conn Troller myself.":ctrlLike(s)?"Badge's yours. See Conn Troller.":"Badge's yours. Show Phyre Wall.",al:"right"}],
   seq:s=>[{f:"dave",t:"porter",l:sso(s)?"POST assertion":"registration complete"},urlHandback(s)?{f:"porter",t:"dave",l:s.vendor==="mist"?"302 → Mist signed authorization URL":"302 → Meraki grant URL",r:1}:s.vendor==="ruckus-smartzone"&&ctrlLike(s)?{f:"porter",t:"troller",l:"API call (NBI): authorize session"}:ctrlLike(s)?{f:"porter",t:"dave",l:"credentials + redirect to controller login",r:1}:fwL(s)?{f:"porter",t:"dave",l:"credentials + redirect to firewall login",r:1}:{f:"porter",t:"dave",l:zs(s)?"SAML assertion (IdP-initiated)":"SAML response (SP-initiated)",r:1}],next:"dEnf5"};
-N.n18g={choice:"mlogin",narr:s=>s.vendor==="mist"?"A stamp instead of a list.":"Port Al's word is enough.",loc:"in the hall",bg:"interior",tag:"Controller · grant URL / signed URL",
+N.n18g={choice:"mlogin",narr:s=>s.vendor==="mist"?"A stamp instead of a list.":"Port Hal's word is enough.",loc:"in the hall",bg:"interior",tag:"Controller · grant URL / signed URL",
   note:s=>s.vendor==="mist"?"Mist: the portal redirects Dave to Mist's authorization URL with a signed token; Mist checks the signature and authorizes the session on the spot, no RADIUS.":"Meraki grant URL: the portal redirects Dave to Meraki's base_grant_url with a session duration; Meraki authorizes the session on the spot. No RADIUS, and nothing is signed.",
-  a:s=>s.vendor==="mist"?[{k:"dave",x:130,b:"Port Al stamped my hand.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Stamp's good. Go ahead!",al:"right"}]:[{k:"dave",x:130,b:"Port Al says I'm good.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Good enough for me. Go ahead!",al:"right"}],
+  a:s=>s.vendor==="mist"?[{k:"dave",x:130,b:"Port Hal stamped my hand.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Stamp's good. Go ahead!",al:"right"}]:[{k:"dave",x:130,b:"Port Hal says I'm good.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Good enough for me. Go ahead!",al:"right"}],
   seq:s=>[{f:"dave",t:"troller",l:s.vendor==="mist"?"GET authorization URL (signed token)":"GET grant URL (duration, continue_url)"},{f:"troller",t:"troller",l:"session authorized · no RADIUS"}],next:"n19"};
-N.n18api={narr:"Port Al phones ahead.",loc:"in the hall",bg:"interior",tag:"Controller API (NBI) → RADIUS Access-Request",
+N.n18api={narr:"Port Hal phones ahead.",loc:"in the hall",bg:"interior",tag:"Controller API (NBI) → RADIUS Access-Request",
   note:"The portal calls the controller's northbound API, which triggers a new Access-Request to RADIUS for Dave's session.",
-  a:[{k:"dave",x:78,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Port Al just called. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
+  a:[{k:"dave",x:78,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Port Hal just called. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
   seq:[{f:"troller",t:"ray",l:"Access-Request (session from API)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
 N.n18={choice:"mlogin",narr:"One last double-check.",loc:"in the hall",bg:"interior",tag:"RADIUS · Access-Request (role = guest)",note:"The controller re-authenticates Dave with the portal-issued credentials; RADIUS returns the guest role.",
   a:[{k:"dave",x:90,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Nice badge. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
@@ -487,13 +507,13 @@ N.dEnf1={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {when:s=>ctrlLike(s)||fwL(s),l:"controller / on-site firewall",set:{integ:"controller"},to:"n9"},
   {when:s=>trans(s),l:"cloud · transient",set:{integ:"cloud",transient:"yes"},to:"n9t"},
   {l:"cloud · classic",set:{integ:"cloud",transient:"no"},to:"n15n"}]}};
-N.n9t={choice:"transient",narr:"Port Al hands over a visitor pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
+N.n9t={choice:"transient",menu:portalMenu,narr:"Port Hal hands over a visitor pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
   note:"The portal — not the firewall — decides to give Dave a limited 'transient' profile right away (a per-tenant portal setting).",
-  a:[{k:"dave",x:130,b:"Hi Port Al — what now?",al:"left"},{k:"porter",x:320,b:"Here's a visitor pass. Off you go!",al:"right"}],
+  a:[{k:"dave",x:130,b:"Hi Port Hal — what now?",al:"left"},{k:"porter",x:320,b:"Here's a visitor pass. Off you go!",al:"right"}],
   seq:s=>[{f:"dave",t:"porter",l:`${ios(s)?"CNA":"sign-in app"}: GET user-portal-url`},{f:"porter",t:"dave",l:"SAML assertion (transient user)",r:1}],next:"n9t2"};
 N.n9t2={narr:"Dave shows his visitor pass.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · transient profile",
-  note:s=>`The browser carries Port Al's SAML assertion to the cloud firewall, which ties Dave's IP to a limited 'transient' profile: ${ios(s)?"captive.apple.com":"the connectivity check"} passes, the rest doesn't.`,
-  a:s=>[{k:"dave",x:170,b:"Port Al gave me a visitor pass.",al:"left"},{k:"phyre",x:315,b:`Visitor pass — fine. Your ${dev(s)} can check in.`,al:"right"}],
+  note:s=>`The browser carries Port Hal's SAML assertion to the cloud firewall, which ties Dave's IP to a limited 'transient' profile: ${ios(s)?"captive.apple.com":"the connectivity check"} passes, the rest doesn't.`,
+  a:s=>[{k:"dave",x:170,b:"Port Hal gave me a visitor pass.",al:"left"},{k:"phyre",x:315,b:`Visitor pass — fine. Your ${dev(s)} can check in.`,al:"right"}],
   seq:[{f:"dave",t:"phyre",l:"POST SAML assertion (transient)"},{f:"phyre",t:"phyre",l:"IP surrogate → transient profile"}],next:"dOs1"};
 N.dEnf2={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {when:s=>ctrlLike(s),l:"controller",set:{integ:"controller"},to:"n13"},
@@ -505,7 +525,7 @@ N.n13f={narr:"Plot twist — a different bouncer.",loc:"dancefloor door",bg:"dan
   seq:s=>[{f:"dave",t:"phyre",l:`GET http://3wi.fi (${br(s)})`}],next:"n14f"};
 N.n14f={narr:"Back to the desk — for real.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Redirect → portal (SAML IdP)",
   note:s=>zs(s)?"Zscaler (IdP-initiated): the firewall redirects to the portal URL; the portal will later post an unsolicited SAML assertion to Zscaler.":"Netskope (SP-initiated): the firewall redirects to its identity provider, the portal, with a SAML request.",
-  a:[{k:"dave",x:170,b:"Just heading to 3wi.fi...",al:"left"},{k:"phyre",x:315,b:"Get a real pass from Port Al first.",al:"right"}],
+  a:[{k:"dave",x:170,b:"Just heading to 3wi.fi...",al:"left"},{k:"phyre",x:315,b:"Get a real pass from Port Hal first.",al:"right"}],
   seq:s=>[{f:"phyre",t:"dave",l:zs(s)?"302 → portal URL (IdP-initiated SAML)":"302 → portal (SAML AuthnRequest)",r:1}],next:"n15"};
 N.dEnf3={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {when:s=>ctrlLike(s),l:"controller",set:{integ:"controller"},to:"n13n"},
@@ -517,18 +537,18 @@ N.n13p={narr:"Caught red-handed.",loc:"dancefloor door",bg:"dance-door-cloud",ta
   seq:s=>[{f:"dave",t:"phyre",l:ios(s)?"GET captive.apple.com":"GET connectivitycheck.gstatic.com"}],next:"n14p"};
 N.n14p={narr:"No pass, no dancefloor.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Redirect → portal (SAML IdP)",
   note:s=>`The redirect opens the portal in ${mini(s)}. ${zs(s)?"Zscaler is IdP-initiated: the portal will post the SAML assertion on its own.":"Netskope is SP-initiated: the redirect carries a SAML request."}`,
-  a:s=>[{k:"dave",x:170,b:ios(s)?"Just checking captive.apple.com...":"Just checking connectivity...",al:"left"},{k:"phyre",x:315,b:"No pass? See Port Al.",al:"right"}],
+  a:s=>[{k:"dave",x:170,b:ios(s)?"Just checking captive.apple.com...":"Just checking connectivity...",al:"left"},{k:"phyre",x:315,b:"No pass? See Port Hal.",al:"right"}],
   seq:s=>[{f:"phyre",t:"dave",l:zs(s)?"302 → portal URL (IdP-initiated SAML)":"302 → portal (SAML AuthnRequest)",r:1}],next:"dEnf4"};
 N.dEnf4={dec:"Firewall mode?",next:{dl:"Firewall mode?",cases:[
   {when:s=>trans(s),l:"transient",set:{transient:"yes"},to:"n9tp"},
   {l:"classic",set:{transient:"no"},to:"n15n"}]}};
-N.n9tp={choice:"transient",narr:"Port Al hands over a visitor pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
+N.n9tp={choice:"transient",menu:portalMenu,narr:"Port Hal hands over a visitor pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
   note:"The portal — not the firewall — decides to give Dave a limited 'transient' profile right away (a per-tenant portal setting).",
-  a:[{k:"dave",x:130,b:"Hi Port Al — what now?",al:"left"},{k:"porter",x:320,b:"Here's a visitor pass. Show it to Phyre Wall.",al:"right"}],
+  a:[{k:"dave",x:130,b:"Hi Port Hal — what now?",al:"left"},{k:"porter",x:320,b:"Here's a visitor pass. Show it to Phyre Wall.",al:"right"}],
   seq:[{f:"porter",t:"dave",l:"SAML assertion (transient user)",r:1}],next:"n9tp2"};
 N.n9tp2=C(N.n9t2,{next:"dOsP"});
-N.n9tp3={narr:"Port Al shows the way out.",loc:"reception",bg:"reception",tag:"Probe passes → 'continue' button",
-  note:"captive.apple.com now goes through, so iOS believes it's online. Port Al's button takes Dave to the real browser.",
+N.n9tp3={narr:"Port Hal shows the way out.",loc:"reception",bg:"reception",tag:"Probe passes → 'continue' button",
+  note:"captive.apple.com now goes through, so iOS believes it's online. Port Hal's button takes Dave to the real browser.",
   a:[{k:"dave",x:130,b:"...and now?",al:"left"},{k:"porter",x:320,b:"All set. Tap to continue.",al:"right"}],
   seq:[{f:"dave",t:"phyre",l:"OS probe · passes"},{f:"porter",t:"dave",l:"shows 'continue' button",r:1}],next:"dDone"};
 N.dOsP={dec:"Device OS?",next:{k:"os",map:{ios:"n9tp3",android:"n11p"}}};
@@ -544,7 +564,7 @@ N.dEnf5={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {l:"controller login → RADIUS",set:{integ:"controller",vendor:"cisco-wlc"},to:"n18"}]}};
 N.n18c={narr:"Phyre Wall updates his list.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · IP surrogate → user",
   note:s=>trans(s)?"Dave's private IP moves from the transient profile to his authorized user — tied to the IP, not a cookie.":"Dave's private IP moves from 'no-auth' to his authorized user. It's tied to the IP, not a cookie, so the real browser works too once the mini-browser closes.",
-  a:[{k:"dave",x:170,b:"Hey Phyre — Port Al vouched for me.",al:"left",band:"--band-green"},{k:"phyre",x:315,b:"Your IP's on my list now.",al:"right"}],
+  a:[{k:"dave",x:170,b:"Hey Phyre — Port Hal vouched for me.",al:"left",band:"--band-green"},{k:"phyre",x:315,b:"Your IP's on my list now.",al:"right"}],
   seq:[{f:"dave",t:"phyre",l:"POST SAML assertion"},{f:"phyre",t:"phyre",l:"bind IP surrogate → authorized user"}],next:"n19c"};
 N.n19c={ok:1,narr:"At last, the dancefloor.",loc:"the dancefloor",bg:"dancefloor-cloud",tag:"authorized user → Internet",note:"The firewall now lets Dave's traffic through. He's online.",
   a:[{k:"phyre",x:270,b:"Go ahead, Dave!",al:"left"},{k:"dave",x:380,b:"Finally — internet!",al:"right",band:"--band-green"}],
@@ -557,7 +577,7 @@ N.n13L={narr:"Plot twist — a different bouncer.",loc:"dancefloor door",bg:"dan
   seq:s=>[{f:"dave",t:"phyre",l:`GET http://3wi.fi (${br(s)})`}],next:"n14L"};
 N.n14L={narr:"Back to the desk — for real.",loc:"dancefloor door",bg:"dance-door",tag:"HTTP 302 → portal",
   note:"The on-site firewall redirects unregistered traffic to the external captive portal.",
-  a:[{k:"dave",x:170,b:"Just heading to 3wi.fi...",al:"left"},{k:"phyre",x:315,b:"First register with Port Al, Dave.",al:"right"}],
+  a:[{k:"dave",x:170,b:"Just heading to 3wi.fi...",al:"left"},{k:"phyre",x:315,b:"First register with Port Hal, Dave.",al:"right"}],
   seq:[{f:"phyre",t:"dave",l:"HTTP 302 → portal URL",r:1}],next:"n15"};
 N.n13pL={narr:"Caught red-handed.",loc:"dancefloor door",bg:"dance-door",tag:"Local firewall · intercepts probe",
   note:s=>`The on-site firewall intercepts the probe, so the OS concludes it's captive and opens ${mini(s)}.`,
@@ -565,7 +585,7 @@ N.n13pL={narr:"Caught red-handed.",loc:"dancefloor door",bg:"dance-door",tag:"Lo
   seq:s=>[{f:"dave",t:"phyre",l:ios(s)?"GET captive.apple.com":"GET connectivitycheck.gstatic.com"}],next:"n14pL"};
 N.n14pL={narr:"Not registered, not dancing.",loc:"dancefloor door",bg:"dance-door",tag:"HTTP 302 → portal",
   note:s=>`The redirect opens the portal in ${mini(s)}.`,
-  a:s=>[{k:"dave",x:170,b:ios(s)?"Just checking captive.apple.com...":"Just checking connectivity...",al:"left"},{k:"phyre",x:315,b:"Not registered? See Port Al.",al:"right"}],
+  a:s=>[{k:"dave",x:170,b:ios(s)?"Just checking captive.apple.com...":"Just checking connectivity...",al:"left"},{k:"phyre",x:315,b:"Not registered? See Port Hal.",al:"right"}],
   seq:[{f:"phyre",t:"dave",l:"HTTP 302 → portal URL",r:1}],next:"n15n"};
 N.n18L={narr:"One last double-check.",loc:"in the hall",bg:"interior",tag:"RADIUS · Access-Request (from firewall)",
   note:"The on-site firewall checks the portal-issued credentials with RADIUS — the controller isn't involved anymore.",
@@ -609,11 +629,11 @@ function thresholdActors(s,line,dave){
   return [{k:"dave",x:dave.x,...dave},{k:"phyre",x:340,b:line,al:"right"}];
 }
 /* ---------- passkey (Face ID / Touch ID) ---------- */
-N.n16P={choice:"reg",narr:"Ida Pee asks for a glance.",loc:"id booth",bg:"booth",tag:"SSO · passkey (WebAuthn)",
+N.n16P={narr:"Ida Pee asks for a glance.",loc:"id booth",bg:"booth",tag:"SSO · passkey (WebAuthn)",
   note:"In a full browser the IdP can use a passkey: Face ID or Touch ID, no password typed at all.",
   a:[{k:"dave",x:130,b:"Face ID... done!",al:"left"},{k:"soso",x:330,b:"Confirmed, you're Dave.",al:"right"}],
   seq:[{f:"porter",t:"dave",l:"redirect → IdP",r:1},{f:"dave",t:"soso",l:"WebAuthn assertion (Face ID / Touch ID)"},{f:"soso",t:"dave",l:"signed assertion",r:1}],next:"n17"};
-N.n16nP={choice:"reg",narr:"Ida Pee asks for a glance.",loc:"id booth",bg:"booth",tag:"SSO · passkey in the mini-browser",
+N.n16nP={narr:"Ida Pee asks for a glance.",loc:"id booth",bg:"booth",tag:"SSO · passkey in the mini-browser",
   note:s=>ios(s)?"The CNA doesn't support WebAuthn: the Face ID prompt never shows up.":"Android's sign-in app doesn't expose passkeys either: the prompt never shows up.",
   a:[{k:"dave",x:130,b:"Face ID?... nothing happens.",al:"left",mood:"flat"},{k:"soso",x:330,b:s=>`Just look at your ${dev(s)}, Dave.`,al:"right"}],
   seq:[{f:"porter",t:"dave",l:"redirect → IdP",r:1},{f:"dave",t:"soso",l:"WebAuthn request · unsupported in mini-browser"}],next:"nPasskeyEnd"};
@@ -714,6 +734,66 @@ N.x8={ok:1,narr:"Straight to the dancefloor.",loc:"the dancefloor",bg:"dancefloo
   seq:s=>[...(s.os==="iot"?[]:[{f:"dave",t:"dave",l:"OS probe passes · not captive"}]),{f:"troller",t:"dave",l:"VLAN 20 · Internet open",r:1}]};
 
 reachesHandsFree=s=>{ for(let id="n1";id;id=nextOf(id,s)) if(id==="dBrowse") return true; return false; }; // stops before dBrowse, which asks this very question
+/* ---------- sponsor approval (Spencer) ---------- */
+// the portal emails the sponsor a link to an approval page (drawn as Port Hal phoning Spencer); Dave's page shows a waiting
+// message and polls; on approval it logs him in by itself, unless he has left: then he comes back with the credentials the SMS brought
+const spencer=(b,o)=>[{k:"sponsor",x:220,b,al:"center",...o}];
+N.sp1={narr:"Dave names a sponsor.",loc:"reception",bg:"reception",tag:"Portal · sponsor request",
+  note:"Dave fills in the form with his phone number and his sponsor's email address, which must belong to a domain the customer allows. The portal asks the sponsor and shows a waiting message.",
+  a:[{k:"dave",x:130,b:"My sponsor is Spencer, from the 3rd floor.",al:"left"},{k:"porter",x:320,b:"Let me ask him. Hold on.",al:"right",headSpin:true}],
+  seq:[{f:"dave",t:"porter",l:"POST registration (phone, sponsor email)"},{f:"porter",t:"dave",l:"Awaiting sponsor approval…",r:1}],next:"sp2"};
+N.sp2={narr:"Port Hal calls the sponsor.",loc:"reception",bg:"reception",tag:"Sponsor email · guest page polls",
+  note:"The sponsor gets an email with a link to an approval page. Meanwhile Dave's page keeps asking the portal, every second or so, whether there is an answer.",
+  a:[{k:"dave",x:130,b:"Spencer had better be quick.",kind:"think",al:"left"},{k:"porter",x:320,b:"Spencer? A Dave says you know him.",al:"right",headSpin:true,phone:true}],
+  seq:[{f:"porter",t:"sponsor",l:"email · approval link"},{f:"dave",t:"porter",l:"GET registration status (poll)"},{f:"porter",t:"dave",l:"pending",r:1}],next:"dSpAuth"};
+N.dSpAuth={dec:"Sponsor?",next:{k:"spauth",map:{none:"spA",sso:"spS",silent:"spQ"}}};
+N.spA={choice:"spauth",narr:"Spencer opens the link.",loc:"his office",bg:"interior",tag:"Approval link · no sign-in",
+  note:"By default the link is enough: it opens the approval page directly and stays valid for 24 hours.",
+  a:spencer("Dave? From the club? Let me see.",{phone:true}),
+  seq:[{f:"sponsor",t:"porter",l:"opens approval link"}],next:"dSpAns"};
+N.spS={choice:"spauth",narr:"Spencer checks in with Ida Pee.",loc:"id booth",bg:"booth",tag:"Sponsor · SAML sign-in",
+  note:"The customer can require the sponsor to sign in first: the approval page sends him to the company's IdP (Entra ID, Okta…) over SAML.",
+  a:[{k:"sponsor",x:150,b:"Ida, it's me, Spencer.",al:"left"},{k:"soso",x:330,b:"Confirmed. Go ahead.",al:"right"}],
+  seq:[{f:"sponsor",t:"porter",l:"opens approval link"},{f:"porter",t:"sponsor",l:"redirect → IdP (SAML)",r:1},{f:"sponsor",t:"soso",l:"sign-in"},{f:"soso",t:"sponsor",l:"signed assertion",r:1},{f:"sponsor",t:"porter",l:"POST assertion"}],next:"dSpAns"};
+N.dSpAns={dec:"Sponsor's answer?",next:{k:"spans",map:{approve:"spY",refuse:"spN"}}};
+N.spY={choice:"spans",narr:"Spencer says yes.",loc:"his office",bg:"interior",tag:"Sponsor approves · profile",
+  note:"On the approval page the sponsor accepts and picks Dave's profile, which sets how long his account stays valid.",
+  a:spencer("Dave? Sure. Guest profile, one day.",{phone:true}),
+  seq:[{f:"sponsor",t:"porter",l:"Accept · profile Guest"},{f:"porter",t:"dave",l:"SMS · credentials",r:1}],next:"dSpWait"};
+N.spN={choice:"spans",narr:"Spencer says no.",loc:"his office",bg:"interior",tag:"Sponsor refuses",
+  note:"The sponsor refuses the request on the approval page.",
+  a:spencer("Dave who? Never heard of him.",{phone:true}),
+  seq:[{f:"sponsor",t:"porter",l:"Reject"}],next:"spNr"};
+// comic-only variants of a panel (easter eggs): not criteria, so they stay out of the URL, the YAML, the sequence and the flow
+const EGG={podbay:"no"};
+N.spNr={end:1,narr:"Not on Spencer's list.",loc:"reception",bg:"reception",tag:"Registration refused · the end",
+  variant:{key:"podbay",opts:[{v:"no",title:"Not on Spencer's list."},{v:"yes",title:"Dave asks to open the pod-bay doors."}]},
+  note:"Dave's page learns the answer at its next check and shows that the registration was refused.",
+  a:()=>EGG.podbay==="yes"?[{k:"dave",x:130,b:"Open the pod-bay doors, Hal.",al:"left",mood:"flat"},{k:"porter",x:320,b:"I'm sorry Dave. I'm afraid I can't do that.",al:"right"}]
+    :[{k:"dave",x:130,mood:"flat"},{k:"porter",x:320,b:"Sorry Dave, your registration was refused.",al:"right"}],
+  seq:[{f:"dave",t:"porter",l:"GET registration status (poll)"},{f:"porter",t:"dave",l:"rejected",r:1}]};
+N.spQ={choice:"spauth",narr:"Spencer is in a meeting.",loc:"his office",bg:"interior",tag:"Sponsor · no answer",
+  note:"The email sits unread and the link is never opened. Nothing expires the request: it stays pending, and the link itself dies after 24 hours.",
+  a:spencer("Later. I'm in a meeting.",{kind:"think"}),
+  seq:[{f:"sponsor",t:"sponsor",l:"approval email left unread"}],next:"spQr"};
+N.spQr={end:1,narr:"Still waiting.",loc:"reception",bg:"reception",tag:"Pending forever · the end",
+  note:"Dave's page keeps polling and the request stays pending: no answer, no access, and no end to the wait.",
+  a:[{k:"dave",x:130,b:"Any news from Spencer?",al:"left",mood:"flat"},{k:"porter",x:320,b:"Still waiting...",al:"right",headSpin:true}],
+  seq:[{f:"dave",t:"porter",l:"GET registration status (poll, forever)"},{f:"porter",t:"dave",l:"pending",r:1}]};
+N.dSpWait={dec:"Dave still on the page?",next:{k:"spwait",map:{stays:"spW",leaves:"spL"}}};
+N.spW={choice:"spwait",narr:"Dave waits at the desk.",loc:"reception",bg:"reception",tag:"Approved · automatic login",
+  note:"Dave stayed on the page: at its next check it learns the approval and logs him in by itself.",
+  a:[{k:"dave",x:130,b:"Spencer said yes?",al:"left"},{k:"porter",x:320,b:"He did. Logging you in!",al:"right"}],
+  seq:[{f:"dave",t:"porter",l:"GET registration status (poll)"},{f:"porter",t:"dave",l:"approved · login token",r:1},{f:"dave",t:"porter",l:"login (token)"}],next:"n17"};
+N.spL={choice:"spwait",narr:"Dave wanders off.",loc:"reception",bg:"reception",tag:"Waiting page left · automatic login lost",
+  note:s=>`Dave left the page${ios(s)?" (on iOS, leaving the CNA even drops the network)":""} before the answer came: only that page could log him in by itself. The approval still sent him his credentials by SMS.`,
+  a:[{k:"porter",x:320,b:"Approved! Dave? ...Dave?",al:"right"}],
+  seq:[{f:"dave",t:"dave",l:"leaves the page · automatic login lost"}],next:"spLr"};
+N.spLr={narr:"Round two.",loc:"reception",bg:"reception",tag:"Portal · login with SMS credentials",
+  note:"Dave rejoins, the journey restarts, and he logs in with the credentials from the SMS.",
+  a:[{k:"dave",x:130,b:"Back! Spencer's yes came by SMS.",al:"left"},{k:"porter",x:320,b:"Logged in. Welcome!",al:"right"}],
+  seq:[{f:"dave",t:"dave",l:"re-joins SSID · journey restarts"},{f:"dave",t:"porter",l:"login (credentials from the SMS)"}],next:"n17"};
+
 function nextOf(id,s){
   const nx=N[id].next; if(!nx) return null;
   if(typeof nx==="string") return nx;

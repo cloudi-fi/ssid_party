@@ -5,9 +5,10 @@ const CH={
   ray:{name:"Ray Dius",color:"var(--c-ray)",acc:"shades"},
   dippy:{name:"Dee Ashcipee",color:"var(--c-dippy)",acc:"ticket"},
   chippy:{name:"Cee Peahy",color:"var(--c-chippy)",acc:"screen"},
-  porter:{name:"Port Al",color:"var(--c-porter)",acc:"bowtie"},
+  porter:{name:"Port Hal",color:"var(--c-porter)",acc:"bowtie"},
   soso:{name:"Ida Pee",color:"var(--c-soso)",acc:"badge"},
-  phyre:{name:"Phyre Wall",color:"var(--c-phyre)",acc:"flame"}
+  phyre:{name:"Phyre Wall",color:"var(--c-phyre)",acc:"flame"},
+  sponsor:{name:"Spencer",color:"var(--c-sponsor)",acc:"tie"}
 };
 const CY=174, W=440, FLOOR=256;
 
@@ -16,6 +17,8 @@ function acc(type,cx,cy){
   switch(type){
     case "phone": return `<rect x="${cx-28}" y="${cy+30}" width="12" height="20" rx="3.5" ${S} ${C} stroke-width="1.5"/><rect x="${cx-25.5}" y="${cy+33}" width="7" height="13" rx="1" ${F} opacity="0.6"/>`;
     case "flame": { const fx=cx+21, fy=cy+38; return `<path d="M${fx} ${fy-22} C${fx+9} ${fy-11} ${fx+8} ${fy} ${fx} ${fy} C${fx-8} ${fy} ${fx-9} ${fy-11} ${fx} ${fy-22} Z" ${F}/><path d="M${fx} ${fy-12} C${fx+4} ${fy-6} ${fx+4} ${fy-1} ${fx} ${fy-1} C${fx-4} ${fy-1} ${fx-4} ${fy-6} ${fx} ${fy-12} Z" fill="#fbbf24"/>`; }
+    // a dark tie, so it stands out on the brown shirt line
+    case "tie": return `<path d="M${cx-3.5} ${cy+20} H${cx+3.5} L${cx+2.5} ${cy+25} H${cx-2.5} Z M${cx-2.5} ${cy+25} H${cx+2.5} L${cx+5} ${cy+40} L${cx} ${cy+45} L${cx-5} ${cy+40} Z" fill="var(--ink)"/>`;
     case "bowtie": return `<path d="M${cx-8} ${cy+18} L${cx} ${cy+22} L${cx-8} ${cy+26} Z M${cx+8} ${cy+18} L${cx} ${cy+22} L${cx+8} ${cy+26} Z" ${F}/>`;
     case "antenna": return `<line x1="${cx-6}" y1="${cy-14}" x2="${cx-10}" y2="${cy-27}" ${C} stroke-width="2" stroke-linecap="round"/><circle cx="${cx-10}" cy="${cy-28}" r="2.4" ${F}/><line x1="${cx+6}" y1="${cy-14}" x2="${cx+10}" y2="${cy-27}" ${C} stroke-width="2" stroke-linecap="round"/><circle cx="${cx+10}" cy="${cy-28}" r="2.4" ${F}/>`;
     case "shades": return `<rect x="${cx-10}" y="${cy-5}" width="9" height="5.5" rx="1.5" fill="var(--ink)"/><rect x="${cx+1}" y="${cy-5}" width="9" height="5.5" rx="1.5" fill="var(--ink)"/><line x1="${cx-1}" y1="${cy-3}" x2="${cx+1}" y2="${cy-3}" stroke="var(--ink)" stroke-width="1.5"/>`;
@@ -28,7 +31,7 @@ function acc(type,cx,cy){
 }
 
 // label widths in Inter 500 12px, measured in Chrome; other labels fall back to an estimate
-const LABEL_W={"Dave Ice":49.5,"Conn Troller":70.2,"Ray Dius":49.8,"Dee Ashcipee":79.6,"Cee Peahy":61.6,"Port Al":38.5,"Ida Pee":42.4,"Phyre Wall":60.6,
+const LABEL_W={"Dave Ice":49.5,"Conn Troller":70.2,"Ray Dius":49.8,"Dee Ashcipee":79.6,"Cee Peahy":61.6,"Port Hal":45.8,"Spencer":48.0,"Ida Pee":42.4,"Phyre Wall":60.6,
   "Device":39.4,"Controller":56.8,"Firewall":44.2,"RADIUS":44.9,"DHCP":34.1,"CPI":19.8,"Portal":33.7,"IdP (SSO)":55.2};
 const labelW=t=>LABEL_W[t]||t.length*6.4;
 const LOGO=14, LOGO_GAP=4, CF_LOGO="img/cloudi-fi-logo-mini.svg";
@@ -85,7 +88,7 @@ function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=n
   </g>`;
 }
 
-const NB_NAMES=["Port Al","Phyre Wall","Dave Ice","Conn Troller","Ray Dius","Dee Ashcipee","Cee Peahy","Ida Pee"];
+const NB_NAMES=["Port Hal","Phyre Wall","Dave Ice","Conn Troller","Ray Dius","Dee Ashcipee","Cee Peahy","Ida Pee"];
 const FULL=t=>String(t).replace(/\b(Dave|Conn|Ray|Dee|Cee|Ida|Phyre)\b(?![\u00a0 ](?:Ice|Troller|Dius|Ashcipee|Peahy|Pee|Wall)\b)/g,m=>({Dave:"Dave Ice",Conn:"Conn Troller",Ray:"Ray Dius",Dee:"Dee Ashcipee",Cee:"Cee Peahy",Ida:"Ida Pee",Phyre:"Phyre Wall"})[m]);
 const NB=t=>NB_NAMES.reduce((acc,n)=>acc.split(n).join(n.replace(/ /g,"\u00a0")),String(t));
 function wrap(t,max){

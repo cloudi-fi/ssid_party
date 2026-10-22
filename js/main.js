@@ -22,7 +22,10 @@ function writeHash(){
   try{ history.replaceState(null,"",s?"#"+s:location.pathname+location.search); }catch(e){}
 }
 
-function render(anchorKey,oldTop){
+const panels=()=>[...document.querySelectorAll("#comic .panel")];
+const panelAt=i=>panels()[i]||null;
+const panelIndex=el=>{ const f=el&&el.closest&&el.closest("#comic .panel"); return f?panels().indexOf(f):null; };
+function render(anchorIdx,oldTop){
   document.querySelectorAll(".viewtab").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===VIEW));
   ["comic","sequence","decision","criteria"].forEach(v=>document.getElementById(v).hidden=(v!==VIEW));
   const wbtn=document.getElementById("widebtn"); if(wbtn){ const w=VIEW==="decision"||VIEW==="sequence"; wbtn.hidden=!w; if(!w) document.body.classList.remove("wide"); wbtn.setAttribute("aria-pressed",document.body.classList.contains("wide")); }
@@ -30,20 +33,21 @@ function render(anchorKey,oldTop){
   const mbtn=document.getElementById("mmdbtn"); if(mbtn) mbtn.hidden=!(VIEW==="sequence"||VIEW==="decision");
   renderTitle();
   if(VIEW==="comic") renderComic(); else if(VIEW==="sequence") renderSeq(); else if(VIEW==="decision") renderDecision(); else renderCriteria();
-  if(anchorKey!=null && oldTop!=null && VIEW==="comic"){
-    const el=document.querySelector(`#comic [data-choice="${anchorKey}"]`);
+  // keep the panel where the choice was made in place (by position: a choice can move its criterion to a later panel)
+  if(anchorIdx!=null && oldTop!=null && VIEW==="comic"){
+    const el=panelAt(anchorIdx);
     if(el) window.scrollBy(0, el.getBoundingClientRect().top-oldTop);
   }
 }
 function choose(opt){
   const set=opt.getAttribute("data-set");
-  const host=opt.closest("[data-choice]"), top=host?host.getBoundingClientRect().top:null;
+  const idx=panelIndex(opt), top=idx!=null?panelAt(idx).getBoundingClientRect().top:null;
   const box=document.querySelector(`#${VIEW} .seqscroll`), sl=box?box.scrollLeft:0, stp=box?box.scrollTop:0;
   const wx=window.scrollX, wy=window.scrollY;
   let key=null;
   if(set){ Object.assign(STATE,JSON.parse(set)); }
   else { key=opt.getAttribute("data-k"); STATE[key]=opt.getAttribute("data-v"); }
-  normalize(STATE); writeHash(); render(key,top);
+  normalize(STATE); writeHash(); render(idx,top);
   if(VIEW!=="comic"){ const nb=document.querySelector(`#${VIEW} .seqscroll`); if(nb){ nb.scrollLeft=sl; nb.scrollTop=stp; } window.scrollTo(wx,wy); }
 }
 // copy the open diagram as Mermaid text; the Clipboard API needs a secure context, older browsers fall back to execCommand
@@ -75,9 +79,12 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("change",e=>{
   const sel=e.target.closest&&e.target.closest("select.wselect"); if(!sel) return;
-  const host=sel.closest("[data-choice]"), top=host?host.getBoundingClientRect().top:null, key=sel.getAttribute("data-k");
-  STATE[key]=sel.value; normalize(STATE); writeHash(); render(key,top);
-  const again=document.getElementById("wi-"+key); if(again) again.focus({preventScroll:true});
+  if(sel.dataset.egg){ EGG[sel.dataset.egg]=sel.value; const wy=window.scrollY; render(); window.scrollTo(window.scrollX,wy); return; }
+  const idx=panelIndex(sel), top=idx!=null?panelAt(idx).getBoundingClientRect().top:null, key=sel.getAttribute("data-k");
+  // an entry of a panel's own menu carries the criteria it sets, as JSON
+  if(sel.value.startsWith("{")) Object.assign(STATE,JSON.parse(sel.value)); else STATE[key]=sel.value;
+  normalize(STATE); writeHash(); render(idx,top);
+  const again=idx!=null&&panelAt(idx)&&panelAt(idx).querySelector("select.wselect"); if(again) again.focus({preventScroll:true});
 });
 window.addEventListener("hashchange",()=>{ readHash(); render(); });
 // the sequence diagram fills the available width: lay it out again when the window is resized
