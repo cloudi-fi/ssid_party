@@ -5,10 +5,10 @@ function panelSVG(id,st){
   s+=bg(V(p.bg,st));
   const actors=V(p.a,st);
   for(const a of actors){
-    if(a.k==="ray"&&a.seated){ s+=rayDesk(a.x,OURS("ray",st)); continue; }
+    if(a.k==="ray"&&a.seated){ s+=rayDesk(a.x,OURS("ray",st),!!a.phone); continue; }
     const band=a.band || (a.k==="dave"&&st.radius==="known"&&rayCheckers(st)?"--band-green":null);
     const phone=a.k==="dave" ? (a.nophone?"none":st.os) : null;
-    s+=figure(a.k,a.x,{band,mood:a.mood||"smile",headSpin:a.headSpin||false,phone,antennas:a.k==="phyre"&&fwBo(st),cloudHead:(a.k==="phyre"&&cloud(st))||(a.k==="dippy"&&cloudDhcp(st)),zombie:!!a.zombie,ours:OURS(a.k,st)});
+    s+=figure(a.k,a.x,{band,mood:a.mood||"smile",headSpin:a.headSpin||false,phone,antennas:a.k==="phyre"&&fwBo(st),cloudHead:(a.k==="phyre"&&cloud(st))||(a.k==="dippy"&&cloudDhcp(st))||(a.k==="soso"&&idSrc(st)==="entraid"),zombie:!!a.zombie,ours:OURS(a.k,st),handset:!!a.phone});
   }
   for(const a of actors){ const b=V(a.b,st); if(b) s+=bubble(a.x,b,{kind:a.kind||"speech",align:a.al||"center",top:a.top||false,color:CH[a.k].color,shift:a.bx||0}); }
   return s+`</svg>`;
@@ -87,6 +87,7 @@ function laneLogo(k,s){
   if(k==="dave") return OS_LOGO[s.os];
   if(k==="troller") return `img/vendors/${VENDOR_LOGO[s.vendor]}.svg`;
   if(k==="phyre"&&(cloud(s)||fwL(s))) return `img/vendors/${FW_LOGO[s.fwvendor]}.svg`;
+  if(k==="soso"&&idSrc(s)) return {ldap:"img/vendors/ldap.png",entraid:"img/vendors/entra-id.svg"}[idSrc(s)]||null;
   return null;
 }
 // the lanes of a sequence diagram: every component with "Show criteria", otherwise only those the story's messages involve
@@ -127,7 +128,7 @@ function renderSeq(){
   const H=y+10;
   let lines=""; SLANES.forEach((k,i)=>{ lines+=`<line x1="${LX(i)}" y1="0" x2="${LX(i)}" y2="${H}" stroke="var(--line)" stroke-width="1.2" stroke-dasharray="4 4"/>`; });
   let head=`<svg viewBox="0 0 ${SW} 40" width="${SW}" height="40" aria-hidden="true">`;
-  SLANES.forEach((k,i)=>{ const x=LX(i); head+=`<rect x="${x-48}" y="5" width="96" height="30" rx="6" fill="var(--surface)" stroke="${CH[k].color}" stroke-width="2"/>`+nameLabel(x,24,TECH[k],"var(--ink)",laneLogo(k,STATE)); });
+  SLANES.forEach((k,i)=>{ const x=LX(i); head+=`<rect x="${x-48}" y="5" width="96" height="30" rx="6" fill="var(--surface)" stroke="${CH[k].color}" stroke-width="2"/>`+nameLabel(x,24,techName(k,STATE),"var(--ink)",laneLogo(k,STATE)); });
   head+=`</svg>`;
   document.getElementById("sequence").innerHTML=`<div class="seqhead"><div class="seqheadin" style="min-width:${SW}px">${head}</div></div><div class="seqscroll seqbody"><div class="seqinner" style="min-width:${SW}px">
     <svg viewBox="0 0 ${SW} ${H}" width="${SW}" height="${H}" role="img" aria-label="Sequence diagram">${lines}${body}</svg></div></div>`;
@@ -265,13 +266,13 @@ const MMD_NAME_RE=new RegExp(`\\b(${Object.keys(MMD_NAMES).sort((a,b)=>b.length-
 const mmd=t=>String(t).replace(MMD_NAME_RE,n=>MMD_NAMES[n]).replace(/[#;"<>]/g,c=>MMD_ESC[c]);
 const stepMark=id=>N[id].ok?"✓ ":N[id].end?"✕ ":"";
 // Mermaid identifiers use the technical names, never the characters' (IdP (SSO) → IdP)
-const mmdId=k=>TECH[k].split(" ")[0];
+const mmdId=(k,s)=>techName(k,s).split(" ")[0];
 // the sequence diagram as shown: same lanes and messages, replies dashed; with criteria, each choice step in an alt block
 function seqMermaid(s,crit){
   const ids=path(s), last=N[ids[ids.length-1]], out=["sequenceDiagram"];
-  for(const k of seqLanes(ids,s,crit)) out.push(`  participant ${mmdId(k)}${mmdId(k)===TECH[k]?"":` as ${mmd(TECH[k])}`}`);
+  for(const k of seqLanes(ids,s,crit)) out.push(`  participant ${mmdId(k,s)}${mmdId(k,s)===techName(k,s)?"":` as ${mmd(techName(k,s))}`}`);
   for(const id of ids){
-    const p=N[id], msgs=(V(p.seq,s)||[]).map(m=>`${mmdId(m.f)}${m.r?"-->>":"->>"}${mmdId(m.t)}: ${mmd(m.l)}`);
+    const p=N[id], msgs=(V(p.seq,s)||[]).map(m=>`${mmdId(m.f,s)}${m.r?"-->>":"->>"}${mmdId(m.t,s)}: ${mmd(m.l)}`);
     if(crit&&hasChoice(id,s)){
       const o=optsFor(p.choice,s).find(o=>o.v===s[p.choice]);
       out.push(`  alt ${mmd(CHOICES[p.choice].tq)}: ${mmd(o?o.t:s[p.choice])}`,...msgs.map(m=>"    "+m),"  end");
@@ -290,7 +291,7 @@ function flowMermaid(s,crit,color){
   for(const e of E) out.push(`  ${e.f} -->${e.l?`|"${mmd(e.l)}"|`:""} ${e.t}`);
   if(color){
     const by={}; for(const id of ids) if(!N[id].dec) (by[stepActor(id,s)]=by[stepActor(id,s)]||[]).push(id);
-    for(const k in by){ out.push(`  classDef ${mmdId(k)} stroke:${color(k)}${crit?"":",stroke-width:2px"}`,`  class ${by[k].join(",")} ${mmdId(k)}`); }
+    for(const k in by){ out.push(`  classDef ${mmdId(k,s)} stroke:${color(k)}${crit?"":",stroke-width:2px"}`,`  class ${by[k].join(",")} ${mmdId(k,s)}`); }
   }
   if(crit){
     const on=new Set(fp.slice(1).map((t,i)=>fp[i]+">"+t)), li=E.map((e,i)=>on.has(e.f+">"+e.t)?i:-1).filter(i=>i>=0);
@@ -314,6 +315,8 @@ const CRIT=[
   {name:"option_114",key:"o114",ctx:"local"},
   {name:"transient",key:"transient",ctx:"local"},
   {name:"registration",key:"reg",ctx:"local"},
+  {name:"identity_source",key:"idsrc",ctx:"local"},
+  {name:"nac_policy",key:"nac",ctx:"local"},
   {name:"ssid",key:"ssid",ctx:"user"},
   {name:"device_os",key:"os",ctx:"user"},
   {name:"eap_method",key:"method",ctx:"user"},
@@ -321,6 +324,7 @@ const CRIT=[
   {name:"static_ip_bypass",key:"hack",ctx:"user"},
   {name:"visit",key:"visit",ctx:"user"},
   {name:"cna_done",key:"done",ctx:"user"},
+  {name:"android_browse",key:"browse",ctx:"user"},
   {name:"sms_notification",key:"smsexit",ctx:"user"}
 ];
 const CRIT_BY_NAME=Object.fromEntries(CRIT.map(c=>[c.name,c]));

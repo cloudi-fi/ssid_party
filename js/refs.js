@@ -11,6 +11,8 @@ const REFS=[
   [/EAP-TTLS/,"https://www.rfc-editor.org/rfc/rfc5281","RFC 5281 · EAP-TTLS"],
   [/EAP-TLS/,"https://www.rfc-editor.org/rfc/rfc5216","RFC 5216 · EAP-TLS"],
   [/\bEAP\b/,"https://www.rfc-editor.org/rfc/rfc3748","RFC 3748 · Extensible Authentication Protocol"],
+  [/\bLDAP\b/,"https://www.rfc-editor.org/rfc/rfc4511","RFC 4511 · LDAP"],
+  [/Entra ID/,"https://learn.microsoft.com/en-us/entra/fundamentals/whatis","What is Microsoft Entra ID? (Microsoft)"],
   [/TLS handshake/,"https://www.rfc-editor.org/rfc/rfc8446#section-2","RFC 8446 §2 · TLS protocol overview"],
   [/\bVLAN\b/,"https://www.rfc-editor.org/rfc/rfc3580#section-3.31","RFC 3580 §3.31 · 802.1X RADIUS tunnel attributes (VLAN)"],
   [/4-way handshake/,"https://en.wikipedia.org/wiki/IEEE_802.11i-2004#Four-way_handshake","Four-way handshake (Wikipedia)"],

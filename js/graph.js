@@ -14,6 +14,13 @@ const CHOICES={
   method:{q:"What if Dave…",tq:"EAP method",opts:[
     {v:"tls",label:"carries a certificate (EAP-TLS)",t:"EAP-TLS · client certificate",when:s=>secure(s)},
     {v:"ttls",label:"has a login and password (EAP-TTLS)",t:"EAP-TTLS · password",when:s=>secure(s)}]},
+  idsrc:{q:"What if Ida…",tq:"Identity source",opts:[
+    {v:"ldap",label:"is the customer's LDAP directory",t:"LDAP",when:s=>secure(s)&&s.method==="ttls"},
+    {v:"entraid",label:"is the customer's Entra ID, in the cloud",t:"Entra ID",when:s=>secure(s)&&s.method==="ttls"},
+    {v:"guest",label:"keeps Cloudi-Fi guest accounts (made at the lobby)",t:"Cloudi-Fi guest account",when:s=>secure(s)&&s.method==="ttls"}]},
+  nac:{q:"What if Ray…",tq:"NAC policy",opts:[
+    {v:"allow",label:"lets him in (NAC policy: allow)",t:"allow · VLAN 20",when:s=>secure(s)},
+    {v:"deny",label:"turns him away (NAC policy: deny)",t:"deny",when:s=>secure(s)}]},
   dhcp:{q:"What if Dee…",tq:"DHCP lease",opts:[
     {v:"ok",label:"has a free address",t:"free address",group:"On-prem DHCP · plain lease, no MAC triage"},
     {v:"conflict",label:"remembers Dave, but his old IP is taken",t:"previous IP taken",group:"On-prem DHCP · plain lease, no MAC triage"},
@@ -79,11 +86,15 @@ const CHOICES={
     {v:"fortigate",label:"FortiGate",t:"FortiGate",when:s=>fwL(s),group:"On site · external captive portal + RADIUS"}]},
   transient:{q:"What if Port Al…",tq:"Portal · transient profile",opts:[
     {when:s=>s.os!=="iot",v:"no",label:"shows the form right away",t:"classic"},
-    {when:s=>s.os!=="iot",v:"yes",label:"hands out a transient pass first",t:"transient"}]}
+    {when:s=>s.os!=="iot",v:"yes",label:"hands out a transient pass first",t:"transient"}]},
+  // last: whether the story reaches this step depends on most criteria above
+  browse:{q:"What if Dave…",tq:"After the sign-in app closes",opts:[
+    {v:"stay",label:"waits for something to happen",t:"waits",when:s=>reachesHandsFree(s)},
+    {v:"http",label:"thinks of opening an HTTP-only site (3wi.fi)",t:"opens an HTTP-only site",when:s=>reachesHandsFree(s)}]}
 };
 // the 802.1X SSID has no captive portal: the portal-side criteria don't apply there (normalize resets them to their default)
 const secure=s=>s.ssid==="secure";
-const OPEN_ONLY=["dhcp","hack","snooping","o114","visit","done","reg","smsexit","integ","mlogin","radius","qpolicy","fwvendor","transient"];
+const OPEN_ONLY=["dhcp","hack","snooping","o114","visit","done","reg","smsexit","browse","integ","mlogin","radius","qpolicy","fwvendor","transient"];
 for(const k of OPEN_ONLY) for(const o of CHOICES[k].opts){ const w=o.when; o.when=w?s=>!secure(s)&&w(s):s=>!secure(s); }
 // links shared before MAB moved to the enforcement criterion: rewrite old hash values in place
 function legacyHash(h){
@@ -94,7 +105,7 @@ function legacyHash(h){
     if(!i||i==="radius") h.set("integ","controllerMab"); else if(i==="fwLocal"||i==="fwBoth") h.set("integ",i+"Mab");
   } else if(i==="radius") h.set("integ","controllerMab");
 }
-const DEF={ssid:"open",os:"ios",method:"tls",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"sso",smsexit:"type"};
+const DEF={ssid:"open",os:"ios",method:"tls",idsrc:"ldap",nac:"allow",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"sso",smsexit:"type",browse:"stay"};
 const TITLES={
   os:{ios:"An iPhone rolls up to the club.",android:"An Android phone rolls up to the club.",iot:"An IP camera rolls up to the club."},
   radius:{unknown:s=>merakiMab(s)?"Ray lets him through anyway.":s.integ==="mabOnly"?"Ray doesn't know him — out.":"Ray says no.",known:"Ray already knows Dave."},
@@ -103,12 +114,15 @@ const TITLES={
   dhcp:{ok:"Dee hands him an address.",conflict:"Dee remembers him — new address.",exhausted:"Dee is out of addresses.",quarantine:"Dee, from the cloud, puts him in quarantine.",whitelist:"Dee, from the cloud, has him on the whitelist.",blacklist:"Dee, from the cloud, has him on the blacklist.",zombies:"Dee, from the cloud, is out of addresses — zombies."},
   hack:{no:"Dave keeps asking, forever.",yes:"Dave picks his own address."},
   method:{tls:"Dave shows his own certificate.",ttls:"Dave whispers his password."},
+  nac:{allow:"Ray says yes.",deny:"Ray says no."},
+  idsrc:{ldap:"Ida Pee checks her directory.",entraid:"Ida Pee answers from the cloud.",guest:"Ida Pee checks the guest accounts."},
   visit:{first:"Dave checks the kiosk.",returning:"Dave doesn't bother checking."},
   snooping:{no:s=>`${greetK(s)==="phyre"?"Phyre Wall":"Conn Troller"} doesn't notice the new address.`,yes:s=>`${greetK(s)==="phyre"?"Phyre Wall":"Conn Troller"} drops the unlearned address.`},
   o114:{yes:"Dee adds a note to the ticket.",no:"No note this time."},
   done:{no:"Dave taps Port Al's button.",yes:"Dave taps 'Done' instead."},
   reg:{sso:"Single sign-on with Ida Pee.",mfa:"Ida Pee wants a second factor.",passkey:"Ida Pee asks for a glance.",form:"Dave fills in the form.",sms:"A text message arrives.",email:"Credentials by email."},
   smsexit:{type:"Dave types the code.",tap:"Dave taps the notification."},
+  browse:{stay:"Dave waits for something to happen.",http:"Dave tries 3wi.fi himself."},
   integ:{controller:s=>usesRadius(s)?"Conn doesn't even ask Ray.":"Conn skips the list.",controllerMab:"Conn checks with the list.",mabOnly:"Conn checks with the list — MAB-only SSID, no portal.",fwLocal:"Conn steps aside — Phyre Wall, on site, doesn't even ask Ray.",fwLocalMab:"Conn steps aside — Phyre Wall, on site, checks with the list.",fwBothMab:"Phyre Wall does it all — and checks with the list.",fwBoth:"Phyre Wall does it all — and doesn't even ask Ray.",cloud:"Conn waves everyone in — Phyre Wall checks from the cloud."},
   fwvendor:{zscaler:"Phyre Wall is a Zscaler.",netskope:"Phyre Wall is a Netskope.",fortigate:"Phyre Wall is a FortiGate."},
   transient:{no:"Port Al shows the form right away.",yes:"Port Al hands out a visitor pass."},
@@ -293,7 +307,7 @@ N.n11={narr:"The flag finally flips.",loc:"reception",bg:"kiosk-reception",tag:"
   seq:[{f:"porter",t:"chippy",l:"set captive = false for MAC"},{f:"dave",t:"chippy",l:"GET CPI URL (poll)"},{f:"chippy",t:"dave",l:"{captive: false}",r:1},{f:"porter",t:"dave",l:"shows 'continue' button",r:1}],next:"dDone"};
 N.n11a={narr:"The app closes itself.",loc:"reception",bg:"reception",tag:"CPI · captive:false → app closes",note:"Android's sign-in app closes by itself as soon as the API says captive:false — no button to tap.",
   a:[{k:"chippy",x:90,b:"You're clear!",al:"left"},{k:"dave",x:226,b:"...wait, where did the portal go?",al:"center",nophone:true},{k:"porter",x:330}],
-  seq:[{f:"porter",t:"chippy",l:"set captive = false for MAC"},{f:"dave",t:"chippy",l:"GET CPI URL (poll)"},{f:"chippy",t:"dave",l:"{captive: false}",r:1},{f:"dave",t:"dave",l:"sign-in app closes automatically"}],next:"n12a"};
+  seq:[{f:"porter",t:"chippy",l:"set captive = false for MAC"},{f:"dave",t:"chippy",l:"GET CPI URL (poll)"},{f:"chippy",t:"dave",l:"{captive: false}",r:1},{f:"dave",t:"dave",l:"sign-in app closes automatically"}],next:"dBrowse"};
 N.dDone={dec:"Taps 'Done'?",next:{k:"done",map:{no:"n12",yes:"n12d"}}};
 N.n12={choice:"done",narr:"Dave thinks he's done.",loc:"in the hall",bg:"dance-door",tag:"CNA closed → Safari",note:"Port Al's button closes the mini-browser and opens the real browser (Safari).",
   a:[{k:"dave",x:210,b:"Not captive anymore? Let's go to 3wi.fi now!",kind:"think",al:"center"}],
@@ -304,13 +318,19 @@ N.n12d={choice:"done",narr:"Dave taps Done.",loc:"reception",bg:"reception",tag:
 N.n12d2={end:1,narr:"An invisible wall.",loc:"in the hall",bg:"dance-wall",tag:"HTTPS fails silently · the end",note:s=>ctrlLike(s)?"iOS believes it's online, so the portal never comes back and every HTTPS request silently fails. The only way out: open a site WITHOUT https, so the controller can redirect it to the portal.":"iOS believes it's online, so the portal never comes back and every HTTPS request silently fails. The only way out: open a site WITHOUT https, so the firewall can redirect it to the portal. (Exception: a firewall that decrypts SSL can redirect HTTPS too — rare for guests.)",
   a:[{k:"dave",x:296,b:"Wait — the S in HTTPS stands for STUCK?",kind:"think",al:"center",bx:-85,mood:"open"}],
   seq:s=>[{f:"dave",t:ctrlLike(s)?"troller":"phyre",l:"HTTPS requests · silently dropped"},{f:"dave",t:"dave",l:"no portal, no Internet"}]};
-N.n12a={narr:"Hands-free.",loc:"in the hall",bg:"dance-door",tag:"Sign-in app closed → Chrome",note:"No mini-browser left to manage: Dave opens Chrome himself and heads for the dancefloor.",
-  a:[{k:"dave",x:210,b:"Not captive anymore? Let's go to 3wi.fi now!",kind:"think",al:"center",nophone:true}],
+// Android closes its sign-in app by itself and opens nothing: going on is up to Dave
+N.dBrowse={dec:"Dave opens a site?",next:{k:"browse",map:{stay:"n12aw",http:"n12a"}}};
+N.n12a={choice:"browse",narr:"Hands-free.",loc:"in the hall",bg:"dance-door",tag:"Sign-in app closed → Chrome",note:"Nothing opens a browser for him: Dave has to think of visiting an HTTP-only site himself, like 3wi.fi, so that it can be redirected.",
+  a:[{k:"dave",x:210,b:"Not captive anymore? Let's try 3wi.fi, then!",kind:"think",al:"center",nophone:true}],
   seq:[{f:"dave",t:"dave",l:"opens Chrome"}],next:"dEnf2"};
 N.n12n={narr:"Dave checks for himself.",loc:"in the hall",bg:"dance-door",tag:"OS connectivity probe",
   note:s=>ios(s)?"Without option 114, iOS tests the network by fetching captive.apple.com.":"Without option 114, Android tests the network by fetching connectivitycheck.gstatic.com.",
   a:s=>[{k:"dave",x:210,b:ios(s)?"Am I captive? Let me check captive.apple.com.":"Am I captive? Let me check connectivitycheck.",kind:"think",al:"center"}],
   seq:[{f:"dave",t:"dave",l:"OS connectivity probe"}],next:"dEnf3"};
+N.n12aw={end:1,choice:"browse",narr:"Online, they said.",loc:"in the hall",bg:"dance-door",tag:"Sign-in app closed · nothing opens · the end",
+  note:"Android now believes the network is open, but Dave hasn't registered yet: apps time out, and nothing tells him to open a browser on an HTTP-only site to reach the portal. He stays stuck in the hall.",
+  a:[{k:"dave",x:210,b:"Online, they said. Why does nothing load?",kind:"think",al:"center",mood:"flat"}],
+  seq:[{f:"dave",t:"dave",l:"sign-in app closed · no browser opened · apps time out"}]};
 N.n13={narr:"Plot twist.",loc:"in the hall",bg:"dance-door",tag:"Controller · still role = base",note:"The controller never changed the role, so traffic is still redirected.",
   a:[{k:"troller",x:120,b:"WHERE YOU GOING, DAVE?",kind:"shout",mood:"open",al:"left"},{k:"dave",x:315,b:"...3wi.fi?",mood:"flat",al:"right"}],
   seq:s=>[{f:"dave",t:"troller",l:`GET http://3wi.fi (${br(s)})`}],next:"n14"};
@@ -437,6 +457,8 @@ N.n19m2=C(N.n19m,{});
 
 /* ---------- cloud firewall (Phyre Wall) ---------- */
 const cloud=s=>s.integ==="cloud";
+// the Android story reaches "Hands-free" (sign-in app closed by itself), set once the graph is built
+let reachesHandsFree=()=>false;
 const trans=s=>cloud(s)&&s.transient==="yes";
 const zs=s=>s.fwvendor==="zscaler";
 const FWN=s=>zs(s)?"Zscaler":"Netskope";
@@ -505,7 +527,7 @@ N.dOsP={dec:"Device OS?",next:{k:"os",map:{ios:"n9tp3",android:"n11p"}}};
 N.n11p={narr:"The app closes itself.",loc:"reception",bg:"reception",tag:"Probe passes → app closes",
   note:"Android sees the connectivity check succeed and closes its sign-in app by itself — no button to tap.",
   a:[{k:"dave",x:210,b:"...wait, where did the portal go?",al:"center",nophone:true},{k:"porter",x:330}],
-  seq:[{f:"dave",t:"dave",l:"sign-in app closes automatically"}],next:"n12a"};
+  seq:[{f:"dave",t:"dave",l:"sign-in app closes automatically"}],next:"dBrowse"};
 N.dEnf5={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {when:s=>fwL(s),l:"local firewall → RADIUS",set:{integ:"fwLocal"},to:"n18L"},
   {when:s=>cloud(s),l:"cloud firewall",set:{integ:"cloud"},to:"n18c"},
@@ -562,7 +584,11 @@ const VNAME={"cisco-wlc":"Cisco WLC",aruba:"Aruba",meraki:"Meraki",mist:"Mist","
 const enfK=s=>fwL(s)?"phyre":"troller";
 const cloudDhcp=s=>["quarantine","whitelist","blacklist","zombies"].includes(s.dhcp);
 // Cloudi-Fi's own services: they get the Cloudi-Fi logo before their name (Dee only when the DHCP is Cloudi-Fi's)
-const OURS=(k,s)=>k==="porter"||k==="chippy"||k==="ray"||(k==="dippy"&&cloudDhcp(s));
+const OURS=(k,s)=>k==="porter"||k==="chippy"||k==="ray"||(k==="dippy"&&cloudDhcp(s))||(k==="soso"&&idSrc(s)==="guest");
+// the identity source Ray calls on the 802.1X door (EAP-TTLS only), or null
+const idSrc=s=>secure(s)&&s.method==="ttls"?s.idsrc:null;
+// technical lane name: on the 802.1X door, Ida Pee is the directory RADIUS calls, not the SSO IdP
+const techName=(k,s)=>k==="soso"&&secure(s)?"Directory":TECH[k];
 // MAB at association: the enforcement point asks RADIUS about the MAC at the door
 const rayCheckers=s=>["controllerMab","mabOnly","fwLocalMab","fwBothMab"].includes(s.integ);
 function entranceActors(s,enfBubble,rayBubble){
@@ -602,18 +628,42 @@ N.dMethod={dec:"EAP method?",next:{k:"method",map:{tls:"x4t",ttls:"x4p"}}};
 N.x4t={choice:"method",narr:"Dave shows his own certificate.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TLS · client certificate",
   note:"EAP-TLS: Dave shows a certificate too. His company's MDM installed it beforehand, or enrolled it over SCEP. RADIUS accepts it only if it chains up to a CA this customer registered: its own, or one Cloudi-Fi runs for it.",
   a:doorCrew("And here's mine.",null,"Signed by your company. Good."),
-  seq:[{f:"dave",t:"troller",l:"EAP-Response (TLS · client certificate)"},{f:"troller",t:"ray",l:"Access-Request (TLS · client certificate)"},{f:"ray",t:"ray",l:"certificate chain → customer's CA"}],next:"x5"};
+  seq:[{f:"dave",t:"troller",l:"EAP-Response (TLS · client certificate)"},{f:"troller",t:"ray",l:"Access-Request (TLS · client certificate)"},{f:"ray",t:"ray",l:"certificate chain → customer's CA"}],next:"dNac"};
+N.dNac={dec:"NAC policy?",next:{k:"nac",map:{allow:"x5",deny:"x5r"}}};
 N.x4p={choice:"method",narr:"Dave whispers his password.",loc:"at the members' door",bg:"door-inside",tag:"EAP-TTLS · password in the tunnel",
-  note:"EAP-TTLS: only RADIUS shows a certificate. Inside the encrypted tunnel, the device sends a login and password, and RADIUS checks them with the company directory (LDAP or Entra ID).",
-  a:doorCrew("Psst: dave / hunter2.",null,"Checking with your directory..."),
-  seq:[{f:"dave",t:"troller",l:"EAP-Response (TTLS tunnel · login, password)"},{f:"troller",t:"ray",l:"Access-Request (tunnelled credentials)"},{f:"ray",t:"ray",l:"login checked with the directory (LDAP / Entra ID)"}],next:"x5"};
-N.x5={narr:"Ray says yes.",loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Accept (VLAN)",
+  note:"EAP-TTLS: only RADIUS shows a certificate. Inside the encrypted tunnel, the device sends a login and password, and RADIUS calls the identity source to check them.",
+  a:s=>doorCrew("Psst: dave / hunter2.",null,"Hold on. Ida? One of yours?").map(x=>x.k==="ray"?{...x,phone:true}:x),
+  seq:[{f:"dave",t:"troller",l:"EAP-Response (TTLS tunnel · login, password)"},{f:"troller",t:"ray",l:"Access-Request (tunnelled credentials)"}],next:"dIdsrc"};
+N.dIdsrc={dec:"Identity source?",next:{k:"idsrc",map:{ldap:"x4l",entraid:"x4e",guest:"x4g"}}};
+// Ida Pee takes Ray's call in her booth, phone to the ear (she is not at the door)
+const idaCall=line=>[{k:"soso",x:330,b:line,al:"right",phone:true}];
+N.x4l={choice:"idsrc",narr:"Ida Pee checks her directory.",loc:"id booth",bg:"booth",tag:"LDAP · search and bind",
+  note:"RADIUS checks the login and password against the customer's LDAP directory, often Active Directory: it looks the user up, then binds with the password.",
+  a:idaCall("dave / hunter2? He's in my directory."),
+  seq:[{f:"ray",t:"soso",l:"LDAP search + bind (login, password)"},{f:"soso",t:"ray",l:"bind OK",r:1}],next:"dNac"};
+N.x4e={choice:"idsrc",narr:"Ida Pee answers from the cloud.",loc:"id booth",bg:"booth",tag:"Entra ID · sign-in check",
+  note:"RADIUS checks the login and password with the customer's Entra ID tenant, in the cloud, and reads the user's groups for the NAC policy.",
+  a:idaCall("dave / hunter2? Signed in. Groups attached."),
+  seq:[{f:"ray",t:"soso",l:"sign-in (login, password)"},{f:"soso",t:"ray",l:"token · group membership",r:1}],next:"dNac"};
+N.x4g={choice:"idsrc",narr:"Ida Pee checks the guest accounts.",loc:"id booth",bg:"booth",tag:"Guest account · login check",
+  note:"The login is a Cloudi-Fi guest account, created beforehand at the lobby: RADIUS checks it against Cloudi-Fi's guest accounts.",
+  a:idaCall("dave / hunter2? The lobby made it. Valid."),
+  seq:[{f:"ray",t:"soso",l:"guest account check (login, password)"},{f:"soso",t:"ray",l:"valid",r:1}],next:"dNac"};
+N.x5={choice:"nac",narr:"Ray says yes.",loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Accept (VLAN)",
   note:"RADIUS applies the customer's NAC policy (allow or deny, and which VLAN), then sends the accept along with the session keys. The controller tells the device it's in.",
-  a:doorCrew(null,"VLAN 20, got it.","Policy says yes. VLAN 20."),
+  a:doorCrew(null,null,"Policy says yes. VLAN 20."),
   seq:[{f:"ray",t:"ray",l:"NAC policy → allow · VLAN 20"},{f:"ray",t:"troller",l:"Access-Accept (EAP-Success, keys, VLAN 20)",r:1},{f:"troller",t:"dave",l:"EAP-Success",r:1}],next:"x6"};
+N.x5r={choice:"nac",narr:"Ray says no.",loc:"at the members' door",bg:"door-inside",tag:"RADIUS · Access-Reject",
+  note:"The credentials check out, but the customer's NAC policy doesn't let this user in here (location, SSID, profile...): RADIUS answers Access-Reject.",
+  a:doorCrew(null,null,"Policy says no. Not tonight."),
+  seq:[{f:"ray",t:"ray",l:"NAC policy → deny"},{f:"ray",t:"troller",l:"Access-Reject (EAP-Failure)",r:1}],next:"x6r"};
+N.x6r={end:1,narr:"Not on the list.",loc:"outside",bg:"door-secure",tag:"EAP-Failure · the end",
+  note:"The controller relays the EAP-Failure and drops the association: no keys, no address, no access.",
+  a:[{k:"dave",x:170,mood:"flat"},{k:"troller",x:340,b:"Sorry Dave, members only.",al:"right"}],
+  seq:[{f:"troller",t:"dave",l:"EAP-Failure · deauthentication",r:1}]};
 N.x6={narr:"Conn hands him the keys.",loc:"stepping in",bg:"door-secure",tag:"4-way handshake · keys",
   note:"Both sides derive the same encryption keys from the 802.1X exchange and prove it in four EAPOL-Key messages. From now on Dave's traffic is encrypted, and placed in VLAN 20.",
-  a:[{k:"dave",x:150,band:"--band-green"},{k:"troller",x:340,b:"Your keys. Members' room, see Dee.",al:"right"}],
+  a:[{k:"dave",x:150,band:"--band-green"},{k:"troller",x:340,b:"VLAN 20, and your keys. See Dee.",al:"right"}],
   seq:[{f:"troller",t:"dave",l:"EAPOL-Key (4-way handshake)"},{f:"dave",t:"troller",l:"EAPOL-Key (4-way handshake)",r:1},{f:"troller",t:"dave",l:"port open · VLAN 20",r:1}],next:"x7"};
 N.x7={narr:"Dee hands him an address.",loc:"cloakroom",bg:"cloakroom",tag:"DHCP · lease in VLAN 20",
   note:"Only now does the device ask for an address: on the members' VLAN, from that VLAN's pool.",
@@ -624,6 +674,7 @@ N.x8={ok:1,narr:"Straight to the dancefloor.",loc:"the dancefloor",bg:"dancefloo
   a:[{k:"troller",x:270,b:"Members don't queue. Go ahead!",al:"left"},{k:"dave",x:380,b:"No portal? Sweet!",al:"right",band:"--band-green"}],
   seq:s=>[...(s.os==="iot"?[]:[{f:"dave",t:"dave",l:"OS probe passes · not captive"}]),{f:"troller",t:"dave",l:"VLAN 20 · Internet open",r:1}]};
 
+reachesHandsFree=s=>{ for(let id="n1";id;id=nextOf(id,s)) if(id==="dBrowse") return true; return false; }; // stops before dBrowse, which asks this very question
 function nextOf(id,s){
   const nx=N[id].next; if(!nx) return null;
   if(typeof nx==="string") return nx;

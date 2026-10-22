@@ -4,7 +4,7 @@
 
 An interactive stick-figure comic about what a device goes through on a Cloudi-Fi captive-portal network: joining the Wi-Fi, the RADIUS check, getting an address, captive-portal detection, registration, and the final authorization that opens the Internet. Pick the phone, the controller vendor, the enforcement mode, the DHCP setup or the registration method, and the story changes with you, including the ways it goes wrong. The title picks the door: SSID_PARTY, the open network with its captive portal, or SSID_PARTY_SECURE 🔒, where 802.1X checks a certificate or a password before letting the device in, with no portal at all.
 
-There are 18 criteria. Together they give 171,393 valid configurations, which play out as 1,359 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
+There are 21 criteria. Together they give 180,351 valid configurations, which play out as 1,386 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
 
 **Live: https://cloudi-fi.github.io/ssid_party/**
 
@@ -20,7 +20,7 @@ The nightclub is the network. The hall is the walled garden, the dancefloor door
 | Dee Ashcipee | the DHCP server |
 | Cee Peahy | the Captive-Portal API (RFC 8908) |
 | Port Al | the captive portal |
-| Ida Pee | the identity provider (SSO) |
+| Ida Pee | the identity provider (SSO); on the 802.1X door, the directory RADIUS calls (LDAP, Entra ID or Cloudi-Fi guest accounts) |
 | Phyre Wall | the firewall |
 
 In the comic, the Cloudi-Fi logo before a name marks Cloudi-Fi's own services: Port Al, Cee Peahy, Ray Dius, and Dee Ashcipee when the DHCP is Cloudi-Fi's cloud DHCP. A cloud-shaped head means the cloud version of a character: Phyre Wall as a cloud firewall, Dee Ashcipee as the cloud DHCP.
