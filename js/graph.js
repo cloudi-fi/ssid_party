@@ -10,7 +10,7 @@ const CHOICES={
   os:{q:"What if Dave…",tq:"Device OS",opts:[
     {v:"ios",label:"carries an iPhone",t:"iOS"},
     {v:"android",label:"carries an Android phone",t:"Android"},
-    {v:"iot",label:"is an IP camera (no captive detection)",t:"IoT · no CPD"}]},
+    {v:"iot",label:"is a network printer (no captive detection)",t:"IoT printer · no CPD"}]},
   method:{q:"What if Dave…",tq:"EAP method",opts:[
     {v:"tls",label:"carries a certificate (EAP-TLS)",t:"EAP-TLS · client certificate",when:s=>secure(s)},
     {v:"ttls",label:"has a login and password (EAP-TTLS)",t:"EAP-TTLS · password",when:s=>secure(s)}]},
@@ -111,7 +111,7 @@ function legacyHash(h){
 }
 const DEF={ssid:"open",os:"ios",method:"tls",idsrc:"ldap",creds:"ok",nac:"allow",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"form",smsexit:"type",browse:"stay"};
 const TITLES={
-  os:{ios:"An iPhone rolls up to the club.",android:"An Android phone rolls up to the club.",iot:"An IP camera rolls up to the club."},
+  os:{ios:"An iPhone rolls up to the club.",android:"An Android phone rolls up to the club.",iot:"A network printer rolls up to the club."},
   radius:{unknown:s=>merakiMab(s)?"Ray lets him through anyway.":s.integ==="mabOnly"?"Ray doesn't know him — out.":"Ray says no.",known:"Ray already knows Dave."},
   qpolicy:{defined:"Conn shrugs and waves him in.",missing:"Conn turns him away."},
   mlogin:{grant:"Port Al's word is enough.",radius:"One last double-check."},
@@ -136,7 +136,7 @@ const TITLES={
 for(const k in TITLES) CHOICES[k].opts.forEach(o=>o.title=TITLES[k][o.v]);
 
 // what Dave is, in a sentence: not always a phone (laptops will come with Windows and macOS)
-const DEVICE_NOUN={ios:"phone",android:"phone",iot:"camera"};
+const DEVICE_NOUN={ios:"phone",android:"phone",iot:"printer"};
 const dev=s=>DEVICE_NOUN[s.os]||"device";
 const ios=s=>s.os==="ios", br=s=>ios(s)?"Safari":"Chrome", mini=s=>ios(s)?"the CNA mini-browser":"Android's sign-in app";
 const sso=s=>s.reg==="sso"||s.reg==="mfa"||s.reg==="passkey";
@@ -709,7 +709,7 @@ N.x7={narr:"Dee hands him an address.",loc:"cloakroom",bg:"cloakroom",tag:"DHCP 
   a:[{k:"dave",x:130,b:"Hi Dee, VLAN 20 — got an IP for me?",al:"left",band:"--band-green"},{k:"dippy",x:320,b:"Members' room: 10.0.20.47.",al:"right"}],
   seq:[{f:"dave",t:"dippy",l:"DHCP DISCOVER (VLAN 20)"},{f:"dippy",t:"dave",l:"OFFER 10.0.20.47",r:1},{f:"dave",t:"dippy",l:"DHCP REQUEST"},{f:"dippy",t:"dave",l:"ACK",r:1}],next:"x8"};
 N.x8={ok:1,narr:"Straight to the dancefloor.",loc:"the dancefloor",bg:"dancefloor",tag:"No portal → Internet",
-  note:s=>s.os==="iot"?"No captive portal on this SSID: the camera is online as soon as it has its address.":"The OS probe goes straight through: no captive portal on this SSID, so no mini-browser pops up. Dave is online.",
+  note:s=>s.os==="iot"?"No captive portal on this SSID: the printer is online as soon as it has its address.":"The OS probe goes straight through: no captive portal on this SSID, so no mini-browser pops up. Dave is online.",
   a:[{k:"troller",x:270,b:"Members don't queue. Go ahead!",al:"left"},{k:"dave",x:380,b:"No portal? Sweet!",al:"right",band:"--band-green"}],
   seq:s=>[...(s.os==="iot"?[]:[{f:"dave",t:"dave",l:"OS probe passes · not captive"}]),{f:"troller",t:"dave",l:"VLAN 20 · Internet open",r:1}]};
 

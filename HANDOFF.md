@@ -31,7 +31,7 @@ Goal 3 is why the graph is declarative (criteria → decisions → panels) and w
 | `img/favicon.ico` | Cloudi-Fi favicon (from super.cloudi-fi.net). |
 | `img/cloudi-fi-logo-mini.svg` | The Cloudi-Fi logo shown before the names of Cloudi-Fi's own services (copied from the `ui-kit` repo). |
 | `img/vendors/` | Controller and firewall brand logos (copied from the `ui-kit` repo), plus the LDAP and Entra ID logos for the 802.1X identity source; sequence-diagram lane headers only. |
-| `img/os/` | Apple and Android icons for the Device lane header (Simple Icons, CC0; the Android robot is CC BY 3.0, attributed in the README). IoT uses the 🤖 emoji. |
+| `img/os/` | Apple and Android icons for the Device lane header (Simple Icons, CC0; the Android robot is CC BY 3.0, attributed in the README). IoT (a network printer, the IoT device customers actually have once phones, laptops, desktops and TVs are set aside) uses the 🖨️ emoji. |
 | `tests/check.js` | Exhaustive consistency check (Node, no dependencies). Run it after **every** edit, see §4. |
 | `HANDOFF.md` | This note. |
 
@@ -71,7 +71,7 @@ Nightclub **SSID_PARTY** with a members' door **SSID_PARTY_SECURE** for 802.1X (
 
 | Character | Role | Look |
 |---|---|---|
-| **Dave Ice** | the device | blue; iPhone (blue screen), Android (green screen) or IP camera prop. Zombie rendering (dashed limbs, skull face) when stuck forever |
+| **Dave Ice** | the device | blue; iPhone (blue screen), Android (green screen) or network printer prop (IoT). Zombie rendering (dashed limbs, skull face) when stuck forever |
 | **Conn Troller** | the controller / NAS | cyan, antennas; "Conn" in dialogue |
 | **Ray Dius** | RADIUS | dark grey, shades, seated at a desk with the big ledger |
 | **Dee Ashcipee** | DHCP | orange, cloakroom tickets; option 114 = a note on the ticket; skeleton devices next to her when zombies fill the quarantine; cloud-shaped head when the DHCP is Cloudi-Fi's cloud DHCP |
@@ -86,7 +86,7 @@ Red is reserved for Phyre Wall and failure endings (`--c-fail`). The NAC, if it 
 
 ## 6. Writing rules
 
-- Dave is not always a phone: a sentence that names his device goes through `dev(s)` (`DEVICE_NOUN` in `graph.js`: phone for iOS and Android, camera for IoT). Windows PCs and Macs will come as laptops (Macs behave like iPhones with captive portals); add them there.
+- Dave is not always a phone: a sentence that names his device goes through `dev(s)` (`DEVICE_NOUN` in `graph.js`: phone for iOS and Android, printer for IoT). Windows PCs and Macs will come as laptops (Macs behave like iPhones with captive portals); add them there.
 
 - **Names.** Titles use full names (automatic through `FULL()`). Direct address uses first names ("Hi Dave", "Hey Ray", "Hi Ida"). Referring to a third party uses the full name ("See Dee Ashcipee", "Ask Cee Peahy first"). Port Al is always "Port Al". Composite names never break across lines (`NB()`).
 - **Titles** are sentences in the story's voice, never "what if…". Alternatives of a choice appear as other titles in the dropdown of the same panel. There is no notion of "main story"; the default is just the default.

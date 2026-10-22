@@ -81,7 +81,7 @@ function msgSVG(m,y){
 // sequence-diagram lane headers only: the device's OS, the controller's and the firewall's brand (stand-ins: Cisco for Meraki, Juniper for Mist, CommScope for Ruckus)
 const VENDOR_LOGO={"cisco-wlc":"cisco",aruba:"aruba",meraki:"cisco",mist:"juniper-networks","ruckus-ap":"commscope","ruckus-smartzone":"commscope",fortigate:"fortinet"};
 const FW_LOGO={zscaler:"zscaler",netskope:"netskope",fortigate:"fortinet"};
-const OS_LOGO={ios:"img/os/apple.svg",android:"img/os/android.svg",iot:"emoji:🤖"};
+const OS_LOGO={ios:"img/os/apple.svg",android:"img/os/android.svg",iot:"emoji:🖨️"};
 function laneLogo(k,s){
   if(OURS(k,s)) return CF_LOGO;
   if(k==="dave") return OS_LOGO[s.os];

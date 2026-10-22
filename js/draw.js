@@ -37,7 +37,7 @@ function nameLabel(cx,y,text,fill,logo){
   const tw=labelW(text), w=logo?LOGO+LOGO_GAP+tw:tw, x0=cx-w/2;
   const t=`font-family="var(--font-sans)" font-weight="500" font-size="12" fill="${fill}"`;
   return `<g class="nm" data-x0="${x0.toFixed(1)}" data-x1="${(x0+w).toFixed(1)}">`+(logo
-    ? (logo.startsWith("emoji:") ? `<text x="${x0.toFixed(1)}" y="${y}" font-size="13">${logo.slice(6)}</text>` : `<image href="${logo}" x="${x0.toFixed(1)}" y="${y-LOGO/2-4.5}" width="${LOGO}" height="${LOGO}"/>`)+`<text x="${(x0+LOGO+LOGO_GAP).toFixed(1)}" y="${y}" ${t}>${text}</text>`
+    ? (logo.startsWith("emoji:") ? `<text x="${(x0+LOGO/2).toFixed(1)}" y="${y}" text-anchor="middle" font-size="11.5">${logo.slice(6)}</text>` : `<image href="${logo}" x="${x0.toFixed(1)}" y="${y-LOGO/2-4.5}" width="${LOGO}" height="${LOGO}"/>`)+`<text x="${(x0+LOGO+LOGO_GAP).toFixed(1)}" y="${y}" ${t}>${text}</text>`
     : `<text x="${cx}" y="${y}" text-anchor="middle" ${t}>${text}</text>`)+`</g>`;
 }
 // a phone call (Ray calling Ida Pee): a smartphone like Dave's, grey screen, held to the right ear, in the character's colour
@@ -65,7 +65,8 @@ function figure(key,cx,{band=null,mood="smile",flip=false,headSpin=false,phone=n
   let accStr = flip ? "" : acc(c.acc,cx,cy);
   if(antennas) accStr+=acc("antenna",cx,cy);
   if(key==="dave" && phone==="none") accStr="";
-  else if(key==="dave" && phone==="iot") accStr=`<rect x="${cx-32}" y="${cy+32}" width="18" height="12" rx="2" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/><rect x="${cx-27}" y="${cy+29}" width="7" height="3" rx="1" fill="currentColor"/><circle cx="${cx-23}" cy="${cy+38}" r="3.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="${cx-23}" cy="${cy+38}" r="1.4" fill="currentColor"/>`;
+  // IoT: a network printer (sheet in at the back, a printed page coming out at the front)
+  else if(key==="dave" && phone==="iot") accStr=`<rect x="${cx-30}" y="${cy+26}" width="12" height="8" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/><rect x="${cx-35}" y="${cy+32}" width="22" height="11" rx="2" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/><circle cx="${cx-16.5}" cy="${cy+35.5}" r="1.2" fill="currentColor"/><rect x="${cx-30}" y="${cy+40}" width="12" height="7" fill="var(--surface)" stroke="currentColor" stroke-width="1.2"/><line x1="${cx-28}" y1="${cy+43}" x2="${cx-20}" y2="${cy+43}" stroke="currentColor" stroke-width="0.8"/><line x1="${cx-28}" y1="${cy+45}" x2="${cx-22}" y2="${cy+45}" stroke="currentColor" stroke-width="0.8"/>`;
   else if(key==="dave" && phone==="android") accStr=`<rect x="${cx-28}" y="${cy+30}" width="12" height="20" rx="3.5" fill="var(--surface)" stroke="currentColor" stroke-width="1.5"/><rect x="${cx-25.5}" y="${cy+33}" width="7" height="13" rx="1" fill="#3ddc84"/>`;
   return `<g style="color:${c.color}">
     <line x1="${cx}" y1="${cy+16}" x2="${cx}" y2="${cy+54}" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
