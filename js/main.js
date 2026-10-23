@@ -77,12 +77,16 @@ document.addEventListener("keydown",e=>{
   const opt=e.target.closest&&e.target.closest("g.wopt");
   if(opt && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); choose(opt); }
 });
+// how the user last interacted: a tap or click, or the keyboard (tracked here rather than trusting :focus-visible on selects)
+let lastInput="pointer";
+document.addEventListener("keydown",()=>{ lastInput="keyboard"; },true);
+for(const t of ["pointerdown","touchstart","mousedown"]) document.addEventListener(t,()=>{ lastInput="pointer"; },{capture:true,passive:true});
 document.addEventListener("change",e=>{
   const sel=e.target.closest&&e.target.closest("select.wselect"); if(!sel) return;
   if(sel.dataset.egg){ EGG[sel.dataset.egg]=sel.value; const wy=window.scrollY; render(); window.scrollTo(window.scrollX,wy); return; }
   const idx=panelIndex(sel), top=idx!=null?panelAt(idx).getBoundingClientRect().top:null, key=sel.getAttribute("data-k");
   // give the focus back only to keyboard users: focusing a select on a phone opens it again
-  const kb=sel.matches(":focus-visible");
+  const kb=lastInput==="keyboard";
   // an entry of a panel's own menu carries the criteria it sets, as JSON
   if(sel.value.startsWith("{")) Object.assign(STATE,JSON.parse(sel.value)); else STATE[key]=sel.value;
   normalize(STATE); writeHash(); render(idx,top);
