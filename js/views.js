@@ -332,6 +332,7 @@ const CRIT=[
   {name:"dhcp_snooping",key:"snooping",ctx:"local"},
   {name:"option_114",key:"o114",ctx:"local"},
   {name:"transient",key:"transient",ctx:"local"},
+  {name:"restricted_upgrade",key:"upgrade",ctx:"local"},
   {name:"registration",key:"reg",ctx:"local"},
   {name:"identity_source",key:"idsrc",ctx:"local"},
   {name:"nac_policy",key:"nac",ctx:"local"},

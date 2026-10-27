@@ -8,6 +8,7 @@ const REFS=[
   [/Access-Accept/,"https://www.rfc-editor.org/rfc/rfc2865#section-4.2","RFC 2865 §4.2 · Access-Accept"],
   [/Access-Reject/,"https://www.rfc-editor.org/rfc/rfc2865#section-4.3","RFC 2865 §4.3 · Access-Reject"],
   [/\bRADIUS\b/,"https://www.rfc-editor.org/rfc/rfc2865","RFC 2865 · RADIUS"],
+  [/\bCoA\b/,"https://www.rfc-editor.org/rfc/rfc5176.html","RFC 5176 · Dynamic Authorization (CoA)"],
   [/EAP-TTLS/,"https://www.rfc-editor.org/rfc/rfc5281","RFC 5281 · EAP-TTLS"],
   [/EAP-TLS/,"https://www.rfc-editor.org/rfc/rfc5216","RFC 5216 · EAP-TLS"],
   [/\bEAP\b/,"https://www.rfc-editor.org/rfc/rfc3748","RFC 3748 · Extensible Authentication Protocol"],

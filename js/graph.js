@@ -101,9 +101,15 @@ const CHOICES={
     {v:"zscaler",label:"Zscaler",t:"Zscaler",when:s=>s.integ==="cloud",group:"Cloud · SAML IdP-initiated (Zscaler) / SP-initiated (Netskope), IP surrogate"},
     {v:"netskope",label:"Netskope",t:"Netskope",when:s=>s.integ==="cloud",group:"Cloud · SAML IdP-initiated (Zscaler) / SP-initiated (Netskope), IP surrogate"},
     {v:"fortigate",label:"FortiGate",t:"FortiGate",when:s=>fwL(s),group:"On site · external captive portal + RADIUS"}]},
+  // the transient pass: a limited, temporary access the portal hands out before the form (cloud firewall, or the controller
+  // itself on a Cisco WLC or a Ruckus SmartZone; other controllers will follow once validated)
   transient:{q:"What if Port Hal…",tq:"Portal · transient profile",opts:[
-    {when:s=>s.os!=="iot",v:"no",label:"shows the form right away",t:"classic"},
-    {when:s=>s.os!=="iot",v:"yes",label:"hands out a transient pass first",t:"transient"}]},
+    {when:s=>s.os!=="iot"&&(cloud(s)||reachesCtrlDesk(s)),v:"no",label:"shows the form right away",t:"classic"},
+    {when:s=>s.os!=="iot"&&(cloud(s)||reachesCtrlDesk(s)),v:"yes",label:"hands out a transient pass first",t:"transient"}]},
+  // how the restricted session becomes a full one: a second login (Ruckus accepts it) or a CoA from the portal
+  upgrade:{q:"What if Conn…",tq:"Restricted → full role",opts:[
+    {v:"login",label:"accepts a second login",t:"second login (NBI)",when:s=>trCtrl(s)&&s.vendor==="ruckus-smartzone"},
+    {v:"coa",label:"takes a CoA from the portal",t:"CoA",when:s=>trCtrl(s)&&s.vendor==="ruckus-smartzone"}]},
   // last: whether the story reaches this step depends on most criteria above
   browse:{q:"What if Dave…",tq:"After the sign-in app closes",opts:[
     {v:"stay",label:"waits for something to happen",t:"waits",when:s=>reachesHandsFree(s)},
@@ -122,7 +128,7 @@ function legacyHash(h){
     if(!i||i==="radius") h.set("integ","controllerMab"); else if(i==="fwLocal"||i==="fwBoth") h.set("integ",i+"Mab");
   } else if(i==="radius") h.set("integ","controllerMab");
 }
-const DEF={ssid:"open",os:"ios",method:"tls",idsrc:"ldap",creds:"ok",nac:"allow",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"form",smsexit:"type",browse:"stay",spauth:"none",spans:"approve",spwait:"stays"};
+const DEF={ssid:"open",os:"ios",method:"tls",idsrc:"ldap",creds:"ok",nac:"allow",vendor:"cisco-wlc",integ:"controller",mlogin:"grant",fwvendor:"zscaler",transient:"no",radius:"unknown",qpolicy:"defined",dhcp:"ok",hack:"no",snooping:"no",visit:"first",o114:"no",done:"no",reg:"form",smsexit:"type",browse:"stay",upgrade:"login",spauth:"none",spans:"approve",spwait:"stays"};
 const TITLES={
   os:{ios:"An iPhone rolls up to the club.",android:"An Android phone rolls up to the club.",iot:"A network printer rolls up to the club."},
   radius:{unknown:s=>merakiMab(s)?"Ray lets him through anyway.":s.integ==="mabOnly"?"Ray doesn't know him — out.":"Ray says no.",known:"Ray already knows Dave."},
@@ -146,7 +152,8 @@ const TITLES={
   browse:{stay:"Dave waits for something to happen.",http:"Dave tries 3wi.fi himself."},
   integ:{controller:s=>usesRadius(s)?"Conn doesn't even ask Ray.":"Conn skips the list.",controllerMab:"Conn checks with the list.",mabOnly:"Conn checks with the list — MAB-only SSID, no portal.",fwLocal:"Conn steps aside — Phyre Wall, on site, doesn't even ask Ray.",fwLocalMab:"Conn steps aside — Phyre Wall, on site, checks with the list.",fwBothMab:"Phyre Wall does it all — and checks with the list.",fwBoth:"Phyre Wall does it all — and doesn't even ask Ray.",cloud:"Conn waves everyone in — Phyre Wall checks from the cloud."},
   fwvendor:{zscaler:"Phyre Wall is a Zscaler.",netskope:"Phyre Wall is a Netskope.",fortigate:"Phyre Wall is a FortiGate."},
-  transient:{no:"Port Hal shows the form right away.",yes:"Port Hal hands out a visitor pass."},
+  transient:{no:"Port Hal shows the form right away.",yes:"Port Hal hands out a transient pass."},
+  upgrade:{login:"Conn accepts a second login.",coa:"Port Hal calls Conn."},
   vendor:Object.fromEntries([["cisco-wlc","a Cisco WLC"],["aruba","an Aruba"],["meraki","a Meraki"],["mist","a Juniper Mist"],["ruckus-ap","a Ruckus AP"],["ruckus-smartzone","a Ruckus SmartZone"],["fortigate","a FortiGate"]].map(([v,n])=>[v,s=>secure(s)?`Dave gives his name to ${n}.`:`Dave hands his MAC to ${n}.`]))
 };
 for(const k in TITLES) CHOICES[k].opts.forEach(o=>o.title=TITLES[k][o.v]);
@@ -365,7 +372,11 @@ N.n13n={narr:"Caught red-handed.",loc:"in the hall",bg:"dance-door",tag:"Control
 N.n14={narr:"Back to the desk — for real.",loc:"in the hall",bg:"dance-door",tag:"HTTP 302 → portal",note:"Unregistered traffic is redirected to the registration page.",
   a:[{k:"troller",x:120,b:"First register with Port Hal, Dave.",al:"left"},{k:"dave",x:315,mood:"flat"}],
   seq:[{f:"troller",t:"dave",l:"HTTP 302 → portal URL",r:1}],next:"n15"};
-N.n14b=C(N.n14,{next:"n15n"});
+N.n14b=C(N.n14,{next:"dTrC"});
+// on a Cisco WLC or a Ruckus SmartZone (iOS, captive probe), Port Hal can hand out a transient pass instead of the form
+N.dTrC={dec:"Transient pass?",next:{dl:"Transient pass?",cases:[
+  {when:s=>trCtrl(s),l:"transient pass (restricted role)",set:{os:"ios",integ:"controller",vendor:"cisco-wlc",o114:"no",transient:"yes"},to:"xT1"},
+  {l:"form right away",set:{transient:"no"},to:"n15n"}]}};
 
 const ASK={sso:"Fill this in — or use Ida Pee.",mfa:"Fill this in — or use Ida Pee.",passkey:"Fill this in — or use Ida Pee.",form:"Just fill in this form.",sms:"Your phone number, please.",email:"Your email? I'll send your credentials.",sponsor:"Fill this in, and name your sponsor."};
 const ASK_HI={sso:"Hi Dave, fill this in — or use Ida Pee.",mfa:"Hi Dave, fill this in — or use Ida Pee.",passkey:"Hi Dave, fill this in — or use Ida Pee.",form:"Hi Dave, just fill in this form.",sms:"Hi Dave, your phone number, please.",email:"Hi Dave, your email? I'll send your credentials.",sponsor:"Hi Dave, fill this in, and name your sponsor."};
@@ -375,10 +386,10 @@ N.n15={choice:"reg",narr:"Port Hal hands over a form.",loc:"reception",bg:"recep
   a:s=>[{k:"dave",x:130,b:"Yo Port Hal, I'm back.",al:"left"},{k:"porter",x:320,b:portalAsk(s,false),al:"right"}],
   seq:s=>[{f:"dave",t:"porter",l:`GET portal (${br(s)})`},{f:"porter",t:"dave",l:"registration page",r:1}],next:"dRegB"};
 // the registration method is Port Hal's call, so it is chosen where he presents it. Behind a cloud firewall, the first panel
-// at his desk always offers the same menu: the methods, then the transient visitor pass (two criteria in one menu)
+// at his desk always offers the same menu: the methods, then the transient pass (two criteria in one menu)
 const portalMenu=s=>[...optsFor("reg",s).map(o=>({title:V(o.title,{...s,reg:o.v,transient:"no"}),t:o.t,set:{reg:o.v,transient:"no"},on:!trans(s)&&s.reg===o.v})),
-  {title:"Port Hal hands out a visitor pass.",t:"transient pass",set:{transient:"yes"},on:trans(s)}];
-N.n15n={choice:"reg",menu:s=>cloud(s)?portalMenu(s):null,narr:"Port Hal hands over a form.",loc:"reception",bg:"reception",tag:"Portal · registration (mini-browser)",
+  {title:"Port Hal hands out a transient pass.",t:"transient pass",set:{transient:"yes"},on:trans(s)}];
+N.n15n={choice:"reg",menu:s=>cloud(s)||ctrlTransient(s)?portalMenu(s):null,narr:"Port Hal hands over a form.",loc:"reception",bg:"reception",tag:"Portal · registration (mini-browser)",
   note:s=>ios(s)?"The form loads in the CNA mini-browser — not in Safari.":"The form loads in Android's sign-in app — not in Chrome.",
   a:s=>[{k:"dave",x:130,b:"Hi Port Hal, I'm Dave.",al:"left"},{k:"porter",x:320,b:portalAsk(s,true),al:"right"}],
   seq:s=>[{f:"dave",t:"porter",l:`GET portal (${ios(s)?"CNA":"sign-in app"})`},{f:"porter",t:"dave",l:"registration page",r:1}],next:"dRegC"};
@@ -460,17 +471,17 @@ N.n16ne2=C(N.n16e2,{tag:"Portal · login (credentials)",note:"On Android, switch
   a:[{k:"dave",x:130,b:"Back from my inbox — still connected!",al:"left"},{k:"porter",x:320,b:"Welcome in!",al:"right"}]});
 
 N.n17={narr:"Verified — here's your badge.",loc:"reception",bg:"reception",tag:"Portal · auth success",
-  note:s=>fwL(s)?"The portal validates the registration and hands Dave credentials to present to the on-site firewall.":urlHandback(s)?(s.vendor==="mist"?"The portal validates the registration and sends Dave back to Mist with a signed authorization URL — no RADIUS involved.":"The portal validates the registration and sends Dave back to Meraki's grant URL — no RADIUS involved."):cloud(s)?`Acting as ${FWN(s)}'s identity provider, the portal sends Dave back with a SAML assertion for Phyre Wall (${zs(s)?"IdP-initiated":"SP-initiated"}).`:s.vendor==="ruckus-smartzone"?"The portal validates the registration and calls the controller's northbound API to authorize the session.":sso(s)?"The portal validates the assertion and hands Dave credentials to present to the controller.":"The portal validates the registration and hands Dave credentials to present to the controller.",
-  a:s=>[{k:"dave",x:130,b:({sso:"Ida Pee vouched. In now?",mfa:"Ida Pee vouched. In now?",passkey:"Ida Pee vouched. In now?",form:"All filled in. In now?",sms:"Code accepted. In now?",email:"Logged in. In now?",sponsor:"Spencer vouched. In now?"})[s.reg],al:"left",band:"--band-green"},{k:"porter",x:320,b:s=>urlHandback(s)?(s.vendor==="mist"?"Badge's yours — and a stamp. Show Conn Troller.":"Badge's yours. Tell Conn I said so."):s.vendor==="ruckus-smartzone"&&ctrlLike(s)?"Badge's yours. I'll call Conn Troller myself.":ctrlLike(s)?"Badge's yours. See Conn Troller.":"Badge's yours. Show Phyre Wall.",al:"right"}],
-  seq:s=>[{f:"dave",t:"porter",l:sso(s)?"POST assertion":"registration complete"},urlHandback(s)?{f:"porter",t:"dave",l:s.vendor==="mist"?"302 → Mist signed authorization URL":"302 → Meraki grant URL",r:1}:s.vendor==="ruckus-smartzone"&&ctrlLike(s)?{f:"porter",t:"troller",l:"API call (NBI): authorize session"}:ctrlLike(s)?{f:"porter",t:"dave",l:"credentials + redirect to controller login",r:1}:fwL(s)?{f:"porter",t:"dave",l:"credentials + redirect to firewall login",r:1}:{f:"porter",t:"dave",l:zs(s)?"SAML assertion (IdP-initiated)":"SAML response (SP-initiated)",r:1}],next:"dEnf5"};
+  note:s=>trCtrl(s)?"The portal validates the registration. Dave keeps his restricted session until Port Hal tells the controller to upgrade it.":fwL(s)?"The portal validates the registration and hands Dave credentials to present to the on-site firewall.":urlHandback(s)?(s.vendor==="mist"?"The portal validates the registration and sends Dave back to Mist with a signed authorization URL — no RADIUS involved.":"The portal validates the registration and sends Dave back to Meraki's grant URL — no RADIUS involved."):cloud(s)?`Acting as ${FWN(s)}'s identity provider, the portal sends Dave back with a SAML assertion for Phyre Wall (${zs(s)?"IdP-initiated":"SP-initiated"}).`:s.vendor==="ruckus-smartzone"?"The portal validates the registration and calls the controller's northbound API to authorize the session.":sso(s)?"The portal validates the assertion and hands Dave credentials to present to the controller.":"The portal validates the registration and hands Dave credentials to present to the controller.",
+  a:s=>[{k:"dave",x:130,b:({sso:"Ida Pee vouched. In now?",mfa:"Ida Pee vouched. In now?",passkey:"Ida Pee vouched. In now?",form:"All filled in. In now?",sms:"Code accepted. In now?",email:"Logged in. In now?",sponsor:"Spencer vouched. In now?"})[s.reg],al:"left",band:"--band-green"},{k:"porter",x:320,b:s=>trCtrl(s)?"Badge's yours. I'll call Conn myself.":urlHandback(s)?(s.vendor==="mist"?"Badge's yours — and a stamp. Show Conn Troller.":"Badge's yours. Tell Conn I said so."):s.vendor==="ruckus-smartzone"&&ctrlLike(s)?"Badge's yours. I'll call Conn Troller myself.":ctrlLike(s)?"Badge's yours. See Conn Troller.":"Badge's yours. Show Phyre Wall.",al:"right"}],
+  seq:s=>trCtrl(s)?[{f:"dave",t:"porter",l:sso(s)?"POST assertion":"registration complete"}]:[{f:"dave",t:"porter",l:sso(s)?"POST assertion":"registration complete"},urlHandback(s)?{f:"porter",t:"dave",l:s.vendor==="mist"?"302 → Mist signed authorization URL":"302 → Meraki grant URL",r:1}:s.vendor==="ruckus-smartzone"&&ctrlLike(s)?{f:"porter",t:"troller",l:"API call (NBI): authorize session"}:ctrlLike(s)?{f:"porter",t:"dave",l:"credentials + redirect to controller login",r:1}:fwL(s)?{f:"porter",t:"dave",l:"credentials + redirect to firewall login",r:1}:{f:"porter",t:"dave",l:zs(s)?"SAML assertion (IdP-initiated)":"SAML response (SP-initiated)",r:1}],next:"dEnf5"};
 N.n18g={choice:"mlogin",narr:s=>s.vendor==="mist"?"A stamp instead of a list.":"Port Hal's word is enough.",loc:"in the hall",bg:"interior",tag:"Controller · grant URL / signed URL",
   note:s=>s.vendor==="mist"?"Mist: the portal redirects Dave to Mist's authorization URL with a signed token; Mist checks the signature and authorizes the session on the spot, no RADIUS.":"Meraki grant URL: the portal redirects Dave to Meraki's base_grant_url with a session duration; Meraki authorizes the session on the spot. No RADIUS, and nothing is signed.",
   a:s=>s.vendor==="mist"?[{k:"dave",x:130,b:"Port Hal stamped my hand.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Stamp's good. Go ahead!",al:"right"}]:[{k:"dave",x:130,b:"Port Hal says I'm good.",al:"left",band:"--band-green"},{k:"troller",x:320,b:"Good enough for me. Go ahead!",al:"right"}],
   seq:s=>[{f:"dave",t:"troller",l:s.vendor==="mist"?"GET authorization URL (signed token)":"GET grant URL (duration, continue_url)"},{f:"troller",t:"troller",l:"session authorized · no RADIUS"}],next:"n19"};
-N.n18api={narr:"Port Hal phones ahead.",loc:"in the hall",bg:"interior",tag:"Controller API (NBI) → RADIUS Access-Request",
-  note:"The portal calls the controller's northbound API, which triggers a new Access-Request to RADIUS for Dave's session.",
+N.n18api={choice:"upgrade",choiceIf:s=>trCtrl(s),narr:"Port Hal phones ahead.",loc:"in the hall",bg:"interior",tag:"Controller API (NBI) → RADIUS Access-Request",
+  note:s=>"The portal calls the controller's northbound API, which triggers a new Access-Request to RADIUS for Dave's session."+(trCtrl(s)?" The SmartZone accepts this second login although Dave already has a restricted role.":""),
   a:[{k:"dave",x:78,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Port Hal just called. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
-  seq:[{f:"troller",t:"ray",l:"Access-Request (session from API)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
+  seq:s=>[...(trCtrl(s)?[{f:"porter",t:"troller",l:"API call (NBI): second login"}]:[]),{f:"troller",t:"ray",l:"Access-Request (session from API)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
 N.n18={choice:"mlogin",narr:"One last double-check.",loc:"in the hall",bg:"interior",tag:"RADIUS · Access-Request (role = guest)",note:"The controller re-authenticates Dave with the portal-issued credentials; RADIUS returns the guest role.",
   a:[{k:"dave",x:90,b:"Hey Conn — what's up?",al:"left",band:"--band-green"},{k:"troller",x:235,b:"Nice badge. Check him, Ray?",al:"center",top:true},{k:"ray",x:355,b:"He's good.",al:"right",seated:true}],
   seq:[{f:"dave",t:"troller",l:"POST controller login (credentials)"},{f:"troller",t:"ray",l:"Access-Request (credentials)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
@@ -507,21 +518,21 @@ N.dEnf1={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {when:s=>ctrlLike(s)||fwL(s),l:"controller / on-site firewall",set:{integ:"controller"},to:"n9"},
   {when:s=>trans(s),l:"cloud · transient",set:{integ:"cloud",transient:"yes"},to:"n9t"},
   {l:"cloud · classic",set:{integ:"cloud",transient:"no"},to:"n15n"}]}};
-N.n9t={choice:"transient",menu:portalMenu,narr:"Port Hal hands over a visitor pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
+N.n9t={choice:"transient",menu:portalMenu,narr:"Port Hal hands over a transient pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
   note:"The portal — not the firewall — decides to give Dave a limited 'transient' profile right away (a per-tenant portal setting).",
-  a:[{k:"dave",x:130,b:"Hi Port Hal — what now?",al:"left"},{k:"porter",x:320,b:"Here's a visitor pass. Off you go!",al:"right"}],
+  a:[{k:"dave",x:130,b:"Hi Port Hal — what now?",al:"left"},{k:"porter",x:320,b:"Here's a transient pass. Off you go!",al:"right"}],
   seq:s=>[{f:"dave",t:"porter",l:`${ios(s)?"CNA":"sign-in app"}: GET user-portal-url`},{f:"porter",t:"dave",l:"SAML assertion (transient user)",r:1}],next:"n9t2"};
-N.n9t2={narr:"Dave shows his visitor pass.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · transient profile",
+N.n9t2={narr:"Dave shows his transient pass.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · transient profile",
   note:s=>`The browser carries Port Hal's SAML assertion to the cloud firewall, which ties Dave's IP to a limited 'transient' profile: ${ios(s)?"captive.apple.com":"the connectivity check"} passes, the rest doesn't.`,
-  a:s=>[{k:"dave",x:170,b:"Port Hal gave me a visitor pass.",al:"left"},{k:"phyre",x:315,b:`Visitor pass — fine. Your ${dev(s)} can check in.`,al:"right"}],
+  a:s=>[{k:"dave",x:170,b:"Port Hal gave me a transient pass.",al:"left"},{k:"phyre",x:315,b:`Transient pass — fine. Your ${dev(s)} can check in.`,al:"right"}],
   seq:[{f:"dave",t:"phyre",l:"POST SAML assertion (transient)"},{f:"phyre",t:"phyre",l:"IP surrogate → transient profile"}],next:"dOs1"};
 N.dEnf2={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {when:s=>ctrlLike(s),l:"controller",set:{integ:"controller"},to:"n13"},
   {when:s=>fwL(s),l:"local firewall",set:{integ:"fwLocal"},to:"n13L"},
   {l:"cloud firewall",set:{integ:"cloud"},to:"n13f"}]}};
 N.n13f={narr:"Plot twist — a different bouncer.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Cloud firewall · transient profile",
-  note:"A visitor pass only covers the walled garden and the OS probes: everything else is stopped at the cloud firewall.",
-  a:[{k:"dave",x:170},{k:"phyre",x:315,b:"WHERE YOU GOING, DAVE? Visitor pass only!",kind:"shout",mood:"open",al:"right"}],
+  note:"A transient pass only covers the walled garden and the OS probes: everything else is stopped at the cloud firewall.",
+  a:[{k:"dave",x:170},{k:"phyre",x:315,b:"WHERE YOU GOING, DAVE? Transient pass only!",kind:"shout",mood:"open",al:"right"}],
   seq:s=>[{f:"dave",t:"phyre",l:`GET http://3wi.fi (${br(s)})`}],next:"n14f"};
 N.n14f={narr:"Back to the desk — for real.",loc:"dancefloor door",bg:"dance-door-cloud",tag:"Redirect → portal (SAML IdP)",
   note:s=>zs(s)?"Zscaler (IdP-initiated): the firewall redirects to the portal URL; the portal will later post an unsolicited SAML assertion to Zscaler.":"Netskope (SP-initiated): the firewall redirects to its identity provider, the portal, with a SAML request.",
@@ -542,9 +553,9 @@ N.n14p={narr:"No pass, no dancefloor.",loc:"dancefloor door",bg:"dance-door-clou
 N.dEnf4={dec:"Firewall mode?",next:{dl:"Firewall mode?",cases:[
   {when:s=>trans(s),l:"transient",set:{transient:"yes"},to:"n9tp"},
   {l:"classic",set:{transient:"no"},to:"n15n"}]}};
-N.n9tp={choice:"transient",menu:portalMenu,narr:"Port Hal hands over a visitor pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
+N.n9tp={choice:"transient",menu:portalMenu,narr:"Port Hal hands over a transient pass.",loc:"reception",bg:"reception",tag:"SAML · transient profile",
   note:"The portal — not the firewall — decides to give Dave a limited 'transient' profile right away (a per-tenant portal setting).",
-  a:[{k:"dave",x:130,b:"Hi Port Hal — what now?",al:"left"},{k:"porter",x:320,b:"Here's a visitor pass. Show it to Phyre Wall.",al:"right"}],
+  a:[{k:"dave",x:130,b:"Hi Port Hal — what now?",al:"left"},{k:"porter",x:320,b:"Here's a transient pass. Show it to Phyre Wall.",al:"right"}],
   seq:[{f:"porter",t:"dave",l:"SAML assertion (transient user)",r:1}],next:"n9tp2"};
 N.n9tp2=C(N.n9t2,{next:"dOsP"});
 N.n9tp3={narr:"Port Hal shows the way out.",loc:"reception",bg:"reception",tag:"Probe passes → 'continue' button",
@@ -559,6 +570,7 @@ N.n11p={narr:"The app closes itself.",loc:"reception",bg:"reception",tag:"Probe 
 N.dEnf5={dec:"Enforcement point?",next:{dl:"Enforcement point?",cases:[
   {when:s=>fwL(s),l:"local firewall → RADIUS",set:{integ:"fwLocal"},to:"n18L"},
   {when:s=>cloud(s),l:"cloud firewall",set:{integ:"cloud"},to:"n18c"},
+  {when:s=>coaUp(s),l:"CoA (restricted → full)",set:{os:"ios",integ:"controller",vendor:"cisco-wlc",o114:"no",transient:"yes"},to:"xCoA"},
   {when:s=>urlHandback(s),l:"grant URL (Meraki) / signed URL (Mist)",set:{integ:"controller",vendor:"meraki",mlogin:"grant"},to:"n18g"},
   {when:s=>s.vendor==="ruckus-smartzone",l:"controller API → RADIUS",set:{integ:"controller",vendor:"ruckus-smartzone"},to:"n18api"},
   {l:"controller login → RADIUS",set:{integ:"controller",vendor:"cisco-wlc"},to:"n18"}]}};
@@ -628,6 +640,39 @@ function thresholdActors(s,line,dave){
   if(!fwL(s)) return [{k:"dave",x:dave.x,...dave},{k:"troller",x:340,b:line,al:"right"}];
   return [{k:"dave",x:dave.x,...dave},{k:"phyre",x:340,b:line,al:"right"}];
 }
+/* ---------- transient pass on the controller (Cisco WLC, Ruckus SmartZone): restricted role, then CoA or second login ---------- */
+const ctrlTransient=s=>ctrl(s)&&ios(s)&&(s.vendor==="cisco-wlc"||s.vendor==="ruckus-smartzone");
+// whether the story reaches Port Hal's desk on that controller path (stops at the decision that asks this very question)
+// (a re-entrancy guard: decisions further down ask it again while the story is being walked)
+let walkingDesk=false;
+const reachesCtrlDesk=s=>{ if(!ctrlTransient(s)||walkingDesk) return false; walkingDesk=true;
+  try{ for(let id="n1";id;id=nextOf(id,s)) if(id==="dTrC") return true; return false; } finally{ walkingDesk=false; } };
+const trCtrl=s=>s.transient==="yes"&&s.os!=="iot"&&reachesCtrlDesk(s);
+// the portal upgrades the session with a CoA: always on a Cisco WLC (no second login), by choice on a Ruckus SmartZone
+const coaUp=s=>trCtrl(s)&&(s.vendor==="cisco-wlc"||s.upgrade==="coa");
+N.xT1={choice:"transient",menu:portalMenu,narr:"Port Hal hands out a transient pass.",loc:"reception",bg:"reception",tag:"Controller · restricted role (transient)",
+  note:s=>`Instead of the form, Port Hal first gets Dave a restricted role on the controller: ${s.vendor==="cisco-wlc"?"the page logs the device in on the Cisco WLC with its MAC address":"the portal logs the device in through the SmartZone's API"}. RADIUS answers with a restricted role for 15 minutes: Apple's servers and the portal, nothing else.`,
+  a:[{k:"dave",x:130,b:"Hi Port Hal, I'm Dave.",al:"left"},{k:"porter",x:320,b:"Here's a transient pass. Fifteen minutes, limited.",al:"right"}],
+  seq:s=>[...(s.vendor==="cisco-wlc"?[{f:"porter",t:"dave",l:"auto-login form (MAC)",r:1},{f:"dave",t:"troller",l:"POST controller login (MAC)"}]:[{f:"porter",t:"troller",l:"API call (NBI): login (MAC)"}]),
+    {f:"troller",t:"ray",l:"Access-Request (MAC)"},{f:"ray",t:"troller",l:"Access-Accept (cloudifi-restricted, 15 min)",r:1}],next:"xT2"};
+N.xT2={narr:"The probe gets through.",loc:"dancefloor door",bg:"dance-door",tag:"Restricted role · OS probe passes",
+  note:"The restricted role lets Apple's servers through: the probe gets the real Success page, so iOS believes it's online and the CNA shows Done.",
+  a:[{k:"dave",x:170,b:"Just checking captive.apple.com...",al:"left",band:"--band-grey"},{k:"troller",x:315,b:"Apple's on your pass. Go ahead.",al:"right"}],
+  seq:[{f:"dave",t:"troller",l:"GET captive.apple.com"},{f:"troller",t:"dave",l:"Success (allowed by the restricted role)",r:1}],next:"xT3"};
+N.xT3={narr:"A link, not a redirect.",loc:"reception",bg:"reception",tag:"Portal link with session parameters",
+  note:"The twist: with a restricted role the controller no longer necessarily redirects to the portal, so a trip to 3wi.fi would go nowhere. Port Hal's page gives Dave a link straight back to the portal instead, carrying his session parameters.",
+  a:[{k:"dave",x:130,b:"Done? Where do I register, then?",al:"left",band:"--band-grey"},{k:"porter",x:320,b:"Tap this link: it brings you back to me in Safari.",al:"right"}],
+  seq:[{f:"porter",t:"dave",l:"Done + link to the portal (session parameters)",r:1},{f:"dave",t:"dave",l:"CNA closes · Safari opens the link"}],next:"n15"};
+N.xCoA={choice:"upgrade",choiceIf:s=>s.vendor==="ruckus-smartzone",narr:"Port Hal calls Conn.",loc:"at the door",bg:"door-inside",tag:"RADIUS CoA · restricted → full role",
+  // Cisco (as proven in the lab): the CoA carries the full-role ACL and the WLC applies it on its own.
+  // Ruckus (Authorize-Only, the prototype's default): the SmartZone answers "request initiated" and asks RADIUS again.
+  note:s=>s.vendor==="cisco-wlc"?"A Cisco WLC won't take a second login from a device that already has a role, so the portal sends it a Change-of-Authorization (RFC 5176) carrying the full-role ACL: the WLC applies it to the live session, with no second login, no disconnection and no trip to RADIUS."
+    :"A Ruckus SmartZone would accept a second login, but it also takes a Change-of-Authorization (RFC 5176): asked to authorize the session again, it answers \"request initiated\" and sends RADIUS a new Access-Request, which now returns the full role.",
+  a:s=>s.vendor==="cisco-wlc"?[{k:"troller",x:220,b:"Port Hal? Full role for Dave? Done.",al:"center",phone:true}]
+    :[{k:"troller",x:200,b:"Port Hal says check Dave again. Ray?",al:"center",top:true,phone:true},{k:"ray",x:355,b:"He's good now. Full role.",al:"right",seated:true}],
+  seq:s=>s.vendor==="cisco-wlc"?[{f:"porter",t:"troller",l:"CoA-Request (full-role ACL)"},{f:"troller",t:"porter",l:"CoA-ACK",r:1}]
+    :[{f:"porter",t:"troller",l:"CoA-Request (Authorize-Only)"},{f:"troller",t:"porter",l:"CoA-NAK (507: request initiated)",r:1},{f:"troller",t:"ray",l:"Access-Request (Authorize-Only)"},{f:"ray",t:"troller",l:"Access-Accept (role = guest)",r:1}],next:"n19"};
+
 /* ---------- passkey (Face ID / Touch ID) ---------- */
 N.n16P={narr:"Ida Pee asks for a glance.",loc:"id booth",bg:"booth",tag:"SSO · passkey (WebAuthn)",
   note:"In a full browser the IdP can use a passkey: Face ID or Touch ID, no password typed at all.",

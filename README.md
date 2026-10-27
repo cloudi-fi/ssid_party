@@ -4,7 +4,7 @@
 
 An interactive stick-figure comic about what a device goes through on a Cloudi-Fi captive-portal network: joining the Wi-Fi, the RADIUS check, getting an address, captive-portal detection, registration, and the final authorization that opens the Internet. Pick the phone, the controller vendor, the enforcement mode, the DHCP setup or the registration method, and the story changes with you, including the ways it goes wrong. The title picks the door: SSID_PARTY, the open network with its captive portal, or SSID_PARTY_SECURE 🔒, where 802.1X checks a certificate or a password before letting the device in, with no portal at all.
 
-There are 25 criteria. Together they give 389,903 valid configurations, which play out as 2,320 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
+There are 26 criteria. Together they give 233,799 valid configurations, which play out as 2,595 distinct stories: many configurations lead to the same sequence of panels. `node tests/check.js` prints the current counts.
 
 **Live: https://cloudi-fi.github.io/ssid_party/**
 
